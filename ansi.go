@@ -4,7 +4,7 @@
 // downgrading based on detected terminal capabilities. Styles and colors
 // implement [fmt.Stringer] for direct use with fmt:
 //
-//	fmt.Print(ansi.Bold, ansi.Red.FG(), "error!", ansi.Reset)
+//	fmt.Print(ansi.Bold, ansi.Red.FG, "error!", ansi.Reset)
 //	fmt.Print(ansi.Italic, "note", ansi.Reset)
 //	fmt.Print(ansi.Cursor(ansi.Pos{10, 5}, ansi.Abs))
 package ansi
@@ -37,11 +37,23 @@ const (
 type Style string
 
 // String returns the escape sequence, or an empty string in [ModeNone].
+// Color styles are resolved lazily against the current [ColorMode].
 func (s Style) String() string {
 	if GetMode() == ModeNone {
 		return ""
 	}
+	if len(s) == 6 && s[0] == 0 {
+		c := Color{r: s[2], g: s[3], b: s[4], idx16: int8(s[5])}
+		if s[1] == 'f' {
+			return c.fgCode()
+		}
+		return c.bgCode()
+	}
 	return string(s)
+}
+
+func encodeColor(kind byte, c Color) Style {
+	return Style([]byte{0, kind, c.r, c.g, c.b, byte(c.idx16)})
 }
 
 // ---------------------------------------------------------------------------
@@ -167,29 +179,42 @@ func detectMode() ColorMode {
 // ---------------------------------------------------------------------------
 
 // Color represents a color that renders at the best available color depth.
+// The FG and BG fields are [Style] values for use with fmt:
+//
+//	fmt.Print(ansi.Red.FG, "error", ansi.Reset)
+//	fmt.Print(ansi.Blue.BG, "highlight", ansi.Reset)
 type Color struct {
 	r, g, b uint8
 	idx16   int8 // 0-15 for named colors, -1 for pure RGB
+	FG      Style
+	BG      Style
+}
+
+func newColor(r, g, b uint8, idx16 int8) Color {
+	c := Color{r: r, g: g, b: b, idx16: idx16}
+	c.FG = encodeColor('f', c)
+	c.BG = encodeColor('b', c)
+	return c
 }
 
 // RGB creates a 24-bit color. It will be downgraded automatically if the
 // terminal doesn't support true color.
 func RGB(r, g, b uint8) Color {
-	return Color{r: r, g: g, b: b, idx16: -1}
+	return newColor(r, g, b, -1)
 }
 
 // Hex creates a color from a 24-bit hex value (e.g. 0xFF8800).
 func Hex(hex uint32) Color {
-	return Color{
-		r:     uint8((hex >> 16) & 0xFF),
-		g:     uint8((hex >> 8) & 0xFF),
-		b:     uint8(hex & 0xFF),
-		idx16: -1,
-	}
+	return newColor(
+		uint8((hex>>16)&0xFF),
+		uint8((hex>>8)&0xFF),
+		uint8(hex&0xFF),
+		-1,
+	)
 }
 
 func named(idx int8, r, g, b uint8) Color {
-	return Color{r: r, g: g, b: b, idx16: idx}
+	return newColor(r, g, b, idx)
 }
 
 // Standard named colors.
@@ -212,20 +237,6 @@ var (
 	BrightCyan    = named(14, 0, 255, 255)
 	BrightWhite   = named(15, 255, 255, 255)
 )
-
-// FG returns a [Style] with this color as the foreground.
-//
-//	fmt.Print(ansi.Red.FG(), "error", ansi.Reset)
-func (c Color) FG() Style {
-	return Style(c.fgCode())
-}
-
-// BG returns a [Style] with this color as the background.
-//
-//	fmt.Print(ansi.Blue.BG(), "highlight", ansi.Reset)
-func (c Color) BG() Style {
-	return Style(c.bgCode())
-}
 
 // fgCode returns the raw foreground escape sequence string.
 func (c Color) fgCode() string {

@@ -61,10 +61,10 @@ func TestStyleFmt(t *testing.T) {
 
 func TestStyleFmtWithColor(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := fmt.Sprint(Bold, Red.FG(), "error", Reset)
+		got := fmt.Sprint(Bold, Red.FG, "error", Reset)
 		want := "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
 		if got != want {
-			t.Errorf("fmt.Sprint(Bold, Red.FG(), text, Reset) = %q, want %q", got, want)
+			t.Errorf("fmt.Sprint(Bold, Red.FG, text, Reset) = %q, want %q", got, want)
 		}
 	})
 }
@@ -96,7 +96,7 @@ func TestStyleModeNone(t *testing.T) {
 
 func TestStyleModeNoneFmt(t *testing.T) {
 	withMode(ModeNone, func() {
-		got := fmt.Sprint(Bold, Red.FG(), "hello", Reset)
+		got := fmt.Sprint(Bold, Red.FG, "hello", Reset)
 		want := "hello"
 		if got != want {
 			t.Errorf("ModeNone: fmt.Sprint = %q, want %q", got, want)
@@ -268,40 +268,40 @@ func TestColorBGTrueColor(t *testing.T) {
 
 func TestColorFGStyle(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := Red.FG().String()
+		got := Red.FG.String()
 		want := "\x1b[38;2;205;0;0m"
 		if got != want {
-			t.Errorf("Red.FG().String() = %q, want %q", got, want)
+			t.Errorf("Red.FG.String() = %q, want %q", got, want)
 		}
 	})
 }
 
 func TestColorBGStyle(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := Blue.BG().String()
+		got := Blue.BG.String()
 		want := "\x1b[48;2;0;0;238m"
 		if got != want {
-			t.Errorf("Blue.BG().String() = %q, want %q", got, want)
+			t.Errorf("Blue.BG.String() = %q, want %q", got, want)
 		}
 	})
 }
 
 func TestColorFGFmt(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := fmt.Sprint(Red.FG(), "error", Reset)
+		got := fmt.Sprint(Red.FG, "error", Reset)
 		want := "\x1b[38;2;205;0;0merror\x1b[0m"
 		if got != want {
-			t.Errorf("fmt.Sprint(Red.FG(), text, Reset) = %q, want %q", got, want)
+			t.Errorf("fmt.Sprint(Red.FG, text, Reset) = %q, want %q", got, want)
 		}
 	})
 }
 
 func TestColorBGFmt(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := fmt.Sprint(Blue.BG(), "warning", Reset)
+		got := fmt.Sprint(Blue.BG, "warning", Reset)
 		want := "\x1b[48;2;0;0;238mwarning\x1b[0m"
 		if got != want {
-			t.Errorf("fmt.Sprint(Blue.BG(), text, Reset) = %q, want %q", got, want)
+			t.Errorf("fmt.Sprint(Blue.BG, text, Reset) = %q, want %q", got, want)
 		}
 	})
 }
@@ -448,11 +448,26 @@ func TestModeNone(t *testing.T) {
 	})
 }
 
+func TestColorFGLazyResolution(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		want16 := "\x1b[31m"
+		wantTC := "\x1b[38;2;205;0;0m"
+		fg := Red.FG
+		if got := fg.String(); got != wantTC {
+			t.Errorf("TrueColor: Red.FG.String() = %q, want %q", got, wantTC)
+		}
+		SetMode(Mode16)
+		if got := fg.String(); got != want16 {
+			t.Errorf("Mode16: Red.FG.String() = %q, want %q", got, want16)
+		}
+	})
+}
+
 func TestModeNoneColorFG(t *testing.T) {
 	withMode(ModeNone, func() {
-		got := Red.FG().String()
+		got := Red.FG.String()
 		if got != "" {
-			t.Errorf("ModeNone: Red.FG().String() = %q, want empty", got)
+			t.Errorf("ModeNone: Red.FG.String() = %q, want empty", got)
 		}
 	})
 }

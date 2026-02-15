@@ -59,7 +59,7 @@ The library is organized into these logical sections within `ansi.go`:
 
 4. **Color mode system** — `ColorMode` enum (`ModeAuto`, `ModeTrueColor`, `Mode256`, `Mode16`, `ModeNone`) with thread-safe auto-detection from environment variables (`NO_COLOR`, `COLORTERM`, `TERM`). Uses `sync.Once` + `sync.Mutex`.
 
-5. **Color type** — Core `Color` struct with `r, g, b uint8` and `idx16 int8` (index for named colors, -1 for pure RGB). Constructors: `RGB()`, `Hex()`, and internal `named()`. Methods `FG()` and `BG()` return `Style`.
+5. **Color type** — Core `Color` struct with `r, g, b uint8`, `idx16 int8` (index for named colors, -1 for pure RGB), and `FG`/`BG` fields of type `Style`. Constructors: `RGB()`, `Hex()`, and internal `named()`. Color styles are lazily resolved — `Style.String()` decodes the encoded color and computes the escape code based on the current color mode.
 
 6. **Color downgrading** — Euclidean RGB distance calculations to find the closest match in 16-color and 256-color palettes. The 256-color matcher checks the 6x6x6 cube, grayscale ramp, and base 16 colors.
 
@@ -94,7 +94,7 @@ The library is organized into these logical sections within `ansi.go`:
 
 **Named colors:** `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `White` and bright variants (`BrightBlack`, `BrightRed`, etc.)
 
-**Color methods:** `FG() Style`, `BG() Style`
+**Color fields:** `FG Style`, `BG Style` (lazily resolved in `String()`)
 
 **Style vars:** `Bold`, `Dim`, `Italic`, `Underline`, `Blink`, `RapidBlink`, `Reverse`, `Hidden`, `Strikethrough`
 

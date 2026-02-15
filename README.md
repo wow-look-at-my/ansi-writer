@@ -24,17 +24,17 @@ import (
 func main() {
 	// Styles and colors work directly with fmt
 	fmt.Print(ansi.Bold, "important", ansi.Reset, "\n")
-	fmt.Print(ansi.Red.FG(), "error!", ansi.Reset, "\n")
+	fmt.Print(ansi.Red.FG, "error!", ansi.Reset, "\n")
 
 	// Combine multiple styles
-	fmt.Print(ansi.Bold, ansi.Red.FG(), "critical", ansi.Reset, "\n")
+	fmt.Print(ansi.Bold, ansi.Red.FG, "critical", ansi.Reset, "\n")
 
 	// RGB / Hex colors — downgraded automatically
-	fmt.Print(ansi.RGB(255, 165, 0).FG(), "orange", ansi.Reset, "\n")
-	fmt.Print(ansi.Hex(0x1E90FF).FG(), "dodger blue", ansi.Reset, "\n")
+	fmt.Print(ansi.RGB(255, 165, 0).FG, "orange", ansi.Reset, "\n")
+	fmt.Print(ansi.Hex(0x1E90FF).FG, "dodger blue", ansi.Reset, "\n")
 
 	// Background colors
-	fmt.Print(ansi.White.FG(), ansi.Blue.BG(), "highlight", ansi.Reset, "\n")
+	fmt.Print(ansi.White.FG, ansi.Blue.BG, "highlight", ansi.Reset, "\n")
 }
 ```
 
@@ -48,18 +48,18 @@ func main() {
 
 `BrightBlack` `BrightRed` `BrightGreen` `BrightYellow` `BrightBlue` `BrightMagenta` `BrightCyan` `BrightWhite`
 
-Each has `.FG()` and `.BG()` methods that return a `Style`:
+Each has `.FG` and `.BG` fields of type `Style`:
 
 ```go
-fmt.Print(ansi.Red.FG(), "error", ansi.Reset)
-fmt.Print(ansi.Blue.BG(), "highlight", ansi.Reset)
+fmt.Print(ansi.Red.FG, "error", ansi.Reset)
+fmt.Print(ansi.Blue.BG, "highlight", ansi.Reset)
 ```
 
 ### Custom colors
 
 ```go
-fmt.Print(ansi.RGB(255, 128, 0).FG(), "orange", ansi.Reset)
-fmt.Print(ansi.Hex(0xFF8000).FG(), "amber", ansi.Reset)
+fmt.Print(ansi.RGB(255, 128, 0).FG, "orange", ansi.Reset)
+fmt.Print(ansi.Hex(0xFF8000).FG, "amber", ansi.Reset)
 ```
 
 Custom colors are automatically downgraded to the nearest match when the terminal doesn't support truecolor:
@@ -87,7 +87,7 @@ Style vars can be used directly with `fmt`:
 
 ```go
 fmt.Print(ansi.Bold, "important", ansi.Reset)
-fmt.Print(ansi.Bold, ansi.Italic, ansi.Red.FG(), "fancy error", ansi.Reset)
+fmt.Print(ansi.Bold, ansi.Italic, ansi.Red.FG, "fancy error", ansi.Reset)
 ```
 
 | Var | Effect |
@@ -109,7 +109,7 @@ fmt.Print(ansi.Bold, ansi.Italic, ansi.Red.FG(), "fancy error", ansi.Reset)
 `Style` implements `fmt.Stringer`. Because its underlying type is `string`, `fmt.Sprint` does not insert spaces between adjacent `Style` values:
 
 ```go
-s := fmt.Sprint(ansi.Bold, ansi.Red.FG(), "error", ansi.Reset)
+s := fmt.Sprint(ansi.Bold, ansi.Red.FG, "error", ansi.Reset)
 // s == "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
 ```
 
@@ -117,7 +117,7 @@ In `ModeNone`, `String()` returns an empty string — only your text remains:
 
 ```go
 ansi.SetMode(ansi.ModeNone)
-s := fmt.Sprint(ansi.Bold, ansi.Red.FG(), "hello", ansi.Reset)
+s := fmt.Sprint(ansi.Bold, ansi.Red.FG, "hello", ansi.Reset)
 // s == "hello"
 ```
 
