@@ -1,70 +1,107 @@
 package ansi
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
 
 // ---------------------------------------------------------------------------
-// SGR codes (via style functions)
+// SGR codes (style and reset constants)
 // ---------------------------------------------------------------------------
 
 func TestSGRCodes(t *testing.T) {
-	tests := []struct {
-		name string
-		got  string
-		want string
-	}{
-		{"Reset", Reset, "\x1b[0m"},
-		{"Bold", Bold().String(), "\x1b[1m"},
-		{"Dim", Dim().String(), "\x1b[2m"},
-		{"Italic", Italic().String(), "\x1b[3m"},
-		{"Underline", Underline().String(), "\x1b[4m"},
-		{"Blink", Blink().String(), "\x1b[5m"},
-		{"RapidBlink", RapidBlink().String(), "\x1b[6m"},
-		{"Reverse", Reverse().String(), "\x1b[7m"},
-		{"Hidden", Hidden().String(), "\x1b[8m"},
-		{"Strikethrough", Strikethrough().String(), "\x1b[9m"},
-		{"ResetBold", ResetBold, "\x1b[22m"},
-		{"ResetItalic", ResetItalic, "\x1b[23m"},
-		{"ResetUnderline", ResetUnderline, "\x1b[24m"},
-		{"ResetBlink", ResetBlink, "\x1b[25m"},
-		{"ResetReverse", ResetReverse, "\x1b[27m"},
-		{"ResetHidden", ResetHidden, "\x1b[28m"},
-		{"ResetStrikethrough", ResetStrikethrough, "\x1b[29m"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("got %q, want %q", tt.got, tt.want)
-			}
-		})
-	}
+	withMode(ModeTrueColor, func() {
+		tests := []struct {
+			name string
+			got  string
+			want string
+		}{
+			{"Bold", Bold.String(), "\x1b[1m"},
+			{"Dim", Dim.String(), "\x1b[2m"},
+			{"Italic", Italic.String(), "\x1b[3m"},
+			{"Underline", Underline.String(), "\x1b[4m"},
+			{"Blink", Blink.String(), "\x1b[5m"},
+			{"RapidBlink", RapidBlink.String(), "\x1b[6m"},
+			{"Reverse", Reverse.String(), "\x1b[7m"},
+			{"Hidden", Hidden.String(), "\x1b[8m"},
+			{"Strikethrough", Strikethrough.String(), "\x1b[9m"},
+			{"Reset", Reset.String(), "\x1b[0m"},
+			{"ResetBold", ResetBold.String(), "\x1b[22m"},
+			{"ResetItalic", ResetItalic.String(), "\x1b[23m"},
+			{"ResetUnderline", ResetUnderline.String(), "\x1b[24m"},
+			{"ResetBlink", ResetBlink.String(), "\x1b[25m"},
+			{"ResetReverse", ResetReverse.String(), "\x1b[27m"},
+			{"ResetHidden", ResetHidden.String(), "\x1b[28m"},
+			{"ResetStrikethrough", ResetStrikethrough.String(), "\x1b[29m"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if tt.got != tt.want {
+					t.Errorf("got %q, want %q", tt.got, tt.want)
+				}
+			})
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
-// SGR style functions with text shortcut
+// Style works with fmt
 // ---------------------------------------------------------------------------
 
-func TestSGRFunctionWithText(t *testing.T) {
-	tests := []struct {
-		name string
-		got  string
-		want string
-	}{
-		{"Bold", Bold("hello").String(), "\x1b[1mhello\x1b[0m"},
-		{"Dim", Dim("hello").String(), "\x1b[2mhello\x1b[0m"},
-		{"Italic", Italic("hello").String(), "\x1b[3mhello\x1b[0m"},
-		{"Underline", Underline("hello").String(), "\x1b[4mhello\x1b[0m"},
-		{"Strikethrough", Strikethrough("hello").String(), "\x1b[9mhello\x1b[0m"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("got %q, want %q", tt.got, tt.want)
-			}
-		})
-	}
+func TestStyleFmt(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := fmt.Sprint(Bold, "hello", Reset)
+		want := "\x1b[1mhello\x1b[0m"
+		if got != want {
+			t.Errorf("fmt.Sprint(Bold, text, Reset) = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestStyleFmtWithColor(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "error", Reset)
+		want := "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
+		if got != want {
+			t.Errorf("Sprintf Bold+Red.FG = %q, want %q", got, want)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Style ModeNone
+// ---------------------------------------------------------------------------
+
+func TestStyleModeNone(t *testing.T) {
+	withMode(ModeNone, func() {
+		tests := []struct {
+			name string
+			s    Style
+		}{
+			{"Bold", Bold},
+			{"Italic", Italic},
+			{"Reset", Reset},
+			{"ResetBold", ResetBold},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if got := tt.s.String(); got != "" {
+					t.Errorf("ModeNone: %s.String() = %q, want empty", tt.name, got)
+				}
+			})
+		}
+	})
+}
+
+func TestStyleModeNoneFmt(t *testing.T) {
+	withMode(ModeNone, func() {
+		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "hello", Reset)
+		want := "hello"
+		if got != want {
+			t.Errorf("ModeNone: Sprintf = %q, want %q", got, want)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -226,35 +263,45 @@ func TestColorBGTrueColor(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Color FG/BG with text in TrueColor mode
+// Color FG/BG as Style in TrueColor mode
 // ---------------------------------------------------------------------------
 
-func TestColorFGWithText(t *testing.T) {
+func TestColorFGStyle(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := Red.FG("error").String()
+		got := Red.FG.String()
+		want := "\x1b[38;2;205;0;0m"
+		if got != want {
+			t.Errorf("Red.FG.String() = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestColorBGStyle(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := Blue.BG.String()
+		want := "\x1b[48;2;0;0;238m"
+		if got != want {
+			t.Errorf("Blue.BG.String() = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestColorFGFmt(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := fmt.Sprint(Red.FG, "error", Reset)
 		want := "\x1b[38;2;205;0;0merror\x1b[0m"
 		if got != want {
-			t.Errorf("Red.FG(\"error\").String() = %q, want %q", got, want)
+			t.Errorf("fmt.Sprint(Red.FG, text, Reset) = %q, want %q", got, want)
 		}
 	})
 }
 
-func TestColorBGWithText(t *testing.T) {
+func TestColorBGFmt(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := Blue.BG("warning").String()
+		got := fmt.Sprint(Blue.BG, "warning", Reset)
 		want := "\x1b[48;2;0;0;238mwarning\x1b[0m"
 		if got != want {
-			t.Errorf("Blue.BG(\"warning\").String() = %q, want %q", got, want)
-		}
-	})
-}
-
-func TestColorFGChained(t *testing.T) {
-	withMode(ModeTrueColor, func() {
-		got := Red.FG().Bold().Text("err")
-		want := "\x1b[38;2;205;0;0m\x1b[1merr\x1b[0m"
-		if got != want {
-			t.Errorf("Red.FG().Bold().Text() = %q, want %q", got, want)
+			t.Errorf("fmt.Sprint(Blue.BG, text, Reset) = %q, want %q", got, want)
 		}
 	})
 }
@@ -401,23 +448,26 @@ func TestModeNone(t *testing.T) {
 	})
 }
 
-func TestModeNoneFGWithText(t *testing.T) {
-	withMode(ModeNone, func() {
-		got := Red.FG("hello").String()
-		if got != "hello" {
-			t.Errorf("ModeNone: Red.FG(\"hello\").String() = %q, want %q", got, "hello")
+func TestColorFGLazyResolution(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		want16 := "\x1b[31m"
+		wantTC := "\x1b[38;2;205;0;0m"
+		fg := Red.FG
+		if got := fg.String(); got != wantTC {
+			t.Errorf("TrueColor: Red.FG.String() = %q, want %q", got, wantTC)
+		}
+		SetMode(Mode16)
+		if got := fg.String(); got != want16 {
+			t.Errorf("Mode16: Red.FG.String() = %q, want %q", got, want16)
 		}
 	})
 }
 
-func TestModeNoneStyledText(t *testing.T) {
+func TestModeNoneColorFG(t *testing.T) {
 	withMode(ModeNone, func() {
-		got := Bold().FG(Red).Text("hello")
-		// In ModeNone, FG code is empty but Bold code is still present.
-		// Bold code is a raw SGR string, not mode-dependent.
-		want := "\x1b[1mhello\x1b[0m"
-		if got != want {
-			t.Errorf("ModeNone: Bold().FG(Red).Text() = %q, want %q", got, want)
+		got := Red.FG.String()
+		if got != "" {
+			t.Errorf("ModeNone: Red.FG.String() = %q, want empty", got)
 		}
 	})
 }
@@ -434,85 +484,6 @@ func TestHex(t *testing.T) {
 	if c.idx16 != -1 {
 		t.Errorf("Hex color idx16 = %d, want -1", c.idx16)
 	}
-}
-
-// ---------------------------------------------------------------------------
-// StyledText chaining
-// ---------------------------------------------------------------------------
-
-func TestStyledTextChaining(t *testing.T) {
-	withMode(ModeTrueColor, func() {
-		got := Bold().FG(Red).Text("hello")
-		want := "\x1b[1m\x1b[38;2;205;0;0mhello\x1b[0m"
-		if got != want {
-			t.Errorf("Bold().FG(Red).Text() = %q, want %q", got, want)
-		}
-	})
-}
-
-func TestStyledTextFGAndBG(t *testing.T) {
-	withMode(ModeTrueColor, func() {
-		got := Red.FG().BG(Blue).Bold().Text("fancy")
-		want := "\x1b[38;2;205;0;0m\x1b[48;2;0;0;238m\x1b[1mfancy\x1b[0m"
-		if got != want {
-			t.Errorf("FG+BG+Bold = %q, want %q", got, want)
-		}
-	})
-}
-
-func TestStyledTextStringNoText(t *testing.T) {
-	got := Bold().String()
-	want := "\x1b[1m"
-	if got != want {
-		t.Errorf("Bold().String() = %q, want %q", got, want)
-	}
-}
-
-func TestStyledTextStringWithText(t *testing.T) {
-	got := Bold("hello").String()
-	want := "\x1b[1mhello\x1b[0m"
-	if got != want {
-		t.Errorf("Bold(\"hello\").String() = %q, want %q", got, want)
-	}
-}
-
-func TestStyledTextReuse(t *testing.T) {
-	withMode(ModeTrueColor, func() {
-		base := Red.FG().Bold()
-		got1 := base.Text("first")
-		got2 := base.Text("second")
-		want1 := "\x1b[38;2;205;0;0m\x1b[1mfirst\x1b[0m"
-		want2 := "\x1b[38;2;205;0;0m\x1b[1msecond\x1b[0m"
-		if got1 != want1 {
-			t.Errorf("reuse first = %q, want %q", got1, want1)
-		}
-		if got2 != want2 {
-			t.Errorf("reuse second = %q, want %q", got2, want2)
-		}
-	})
-}
-
-func TestStyledTextImmutability(t *testing.T) {
-	withMode(ModeTrueColor, func() {
-		base := Bold()
-		withRed := base.FG(Red)
-		withBlue := base.FG(Blue)
-
-		gotRed := withRed.Text("r")
-		gotBlue := withBlue.Text("b")
-
-		wantRed := "\x1b[1m\x1b[38;2;205;0;0mr\x1b[0m"
-		wantBlue := "\x1b[1m\x1b[48;2;0;0;238mb\x1b[0m"
-
-		if gotRed != wantRed {
-			t.Errorf("immutability red = %q, want %q", gotRed, wantRed)
-		}
-		// Blue.fgCode() is "\x1b[38;2;0;0;238m", not bgCode
-		wantBlue = "\x1b[1m\x1b[38;2;0;0;238mb\x1b[0m"
-		if gotBlue != wantBlue {
-			t.Errorf("immutability blue = %q, want %q", gotBlue, wantBlue)
-		}
-	})
 }
 
 // ---------------------------------------------------------------------------
