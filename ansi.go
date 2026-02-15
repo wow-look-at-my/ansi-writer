@@ -38,10 +38,10 @@ const (
 //
 //	fmt.Sprintf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "text", ansi.Reset)
 type Style struct {
-	seq         string // escape code for non-color styles
-	r, g, b     uint8
-	idx16       int8
-	color, bg   bool // color: is a color style; bg: background (else foreground)
+	seq       string // escape code for non-color styles
+	r, g, b   uint8
+	idx16     int8
+	color, bg bool // color: is a color style; bg: background (else foreground)
 }
 
 // String returns the escape sequence, or an empty string in [ModeNone].
