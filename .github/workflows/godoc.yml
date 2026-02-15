@@ -53,14 +53,15 @@ jobs:
 
           # Give pkgsite a moment to finish rendering
           sleep 3
+          mkdir -p _site
 
-          # Mirror the documentation site
+          # Download the package documentation page and its assets
+          # No --recursive: this is a single-package library, and recursive
+          # mode follows links to every stdlib package referenced in the docs
           wget \
-            --recursive \
-            --no-parent \
+            --page-requisites \
             --convert-links \
             --adjust-extension \
-            --page-requisites \
             --retry-connrefused \
             --tries=3 \
             --waitretry=2 \
@@ -68,13 +69,11 @@ jobs:
             --no-host-directories \
             "http://localhost:6060/${MODULE}"
 
-          # Also grab top-level static assets (CSS/JS) that pkgsite serves
+          # Grab any additional static assets (CSS/JS) that pkgsite serves
           wget \
             --recursive \
+            --level=1 \
             --no-parent \
-            --convert-links \
-            --adjust-extension \
-            --page-requisites \
             --retry-connrefused \
             --tries=3 \
             --directory-prefix=_site \
