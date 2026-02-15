@@ -3,6 +3,9 @@ name: Deploy GoDoc to GitHub Pages
 on:
   push:
     branches: [master]
+    paths:
+      - "**.go"
+      - go.mod
   workflow_dispatch:
 
 permissions:
@@ -29,22 +32,27 @@ jobs:
 
       - name: Generate documentation
         run: |
+          MODULE="github.com/wow-look-at-my/ansi-writer"
+
           # Start pkgsite serving the local module
           pkgsite -http=localhost:6060 &
           PKGSITE_PID=$!
 
-          # Wait for the server to be ready
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:6060 > /dev/null 2>&1; then
+          # Wait for the module page to be ready (not just the root)
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost:6060/${MODULE}" > /dev/null 2>&1; then
               break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "Timed out waiting for pkgsite to serve module"
+              kill $PKGSITE_PID || true
+              exit 1
             fi
             sleep 1
           done
 
-          MODULE="github.com/wow-look-at-my/ansi-writer"
-
-          # Fetch the package page first to ensure it's loaded
-          curl -sf "http://localhost:6060/${MODULE}" > /dev/null
+          # Give pkgsite a moment to finish rendering
+          sleep 3
 
           # Mirror the documentation site
           wget \
@@ -54,6 +62,8 @@ jobs:
             --adjust-extension \
             --page-requisites \
             --retry-connrefused \
+            --tries=3 \
+            --waitretry=2 \
             --directory-prefix=_site \
             --no-host-directories \
             "http://localhost:6060/${MODULE}"
@@ -66,6 +76,7 @@ jobs:
             --adjust-extension \
             --page-requisites \
             --retry-connrefused \
+            --tries=3 \
             --directory-prefix=_site \
             --no-host-directories \
             --accept='*.css,*.js,*.svg,*.png,*.ico' \
@@ -74,7 +85,7 @@ jobs:
           kill $PKGSITE_PID || true
 
           # Create a root index.html that redirects to the package docs
-          cat > _site/index.html << 'HEREDOC'
+          cat > _site/index.html <<'REDIR'
           <!DOCTYPE html>
           <html>
           <head>
@@ -85,7 +96,7 @@ jobs:
             <p><a href="github.com/wow-look-at-my/ansi-writer">Go to documentation</a></p>
           </body>
           </html>
-          HEREDOC
+          REDIR
 
       - uses: actions/upload-pages-artifact@v3
         with:
