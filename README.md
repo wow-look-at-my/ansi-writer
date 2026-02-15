@@ -22,18 +22,17 @@ import (
 )
 
 func main() {
-	// Named colors
-	fmt.Println(ansi.Red.FG() + "error!" + ansi.Reset)
+	// Simple — one attribute
+	fmt.Println(ansi.Red.FG("error!"))
+	fmt.Println(ansi.Bold("important"))
 
 	// RGB / Hex colors — downgraded automatically
-	fmt.Println(ansi.RGB(255, 165, 0).FG() + "orange" + ansi.Reset)
-	fmt.Println(ansi.Hex(0x1E90FF).FG() + "dodger blue" + ansi.Reset)
+	fmt.Println(ansi.RGB(255, 165, 0).FG("orange"))
+	fmt.Println(ansi.Hex(0x1E90FF).FG("dodger blue"))
 
-	// Style helper applies codes and appends Reset for you
-	fmt.Println(ansi.Style("warning", ansi.Bold, ansi.Yellow.FG()))
-
-	// Background colors
-	fmt.Println(ansi.Style("highlighted", ansi.White.FG(), ansi.Blue.BG()))
+	// Chained — multiple attributes
+	fmt.Println(ansi.Bold().FG(ansi.Yellow).Text("warning"))
+	fmt.Println(ansi.Red.FG().BG(ansi.White).Italic().Text("fancy"))
 }
 ```
 
@@ -47,13 +46,18 @@ func main() {
 
 `BrightBlack` `BrightRed` `BrightGreen` `BrightYellow` `BrightBlue` `BrightMagenta` `BrightCyan` `BrightWhite`
 
-Each has `.FG()` and `.BG()` methods that return the appropriate escape sequence string.
+Each has `.FG()` and `.BG()` methods that return a `StyledText` for fluent chaining or immediate rendering:
+
+```go
+ansi.Red.FG("error")                   // quick: red text with auto-reset
+ansi.Red.FG().Bold().Text("critical")  // chained: red + bold
+```
 
 ### Custom colors
 
 ```go
-ansi.RGB(255, 128, 0)  // from RGB components
-ansi.Hex(0xFF8000)     // from a hex value
+ansi.RGB(255, 128, 0).FG("orange")
+ansi.Hex(0xFF8000).FG("amber")
 ```
 
 Custom colors are automatically downgraded to the nearest match when the terminal doesn't support truecolor:
@@ -63,7 +67,7 @@ Custom colors are automatically downgraded to the nearest match when the termina
 | Truecolor (`COLORTERM=truecolor`) | Exact 24-bit RGB |
 | 256 colors (`TERM=*256color`) | Nearest from 6x6x6 cube, grayscale ramp, or base 16 |
 | 16 colors (default) | Nearest standard ANSI color |
-| No color (`NO_COLOR` set) | Empty string — output is clean |
+| No color (`NO_COLOR` set) | Plain text — no escape codes emitted |
 
 ### Forcing a color mode
 
@@ -77,26 +81,56 @@ ansi.SetMode(ansi.ModeAuto)      // back to auto-detection
 
 ## Text styles
 
-All styles are plain strings — concatenate them directly:
+Style functions return `StyledText` — use them standalone or chain them:
 
 ```go
-fmt.Print(ansi.Bold + ansi.Underline + "important" + ansi.Reset)
+ansi.Bold("important")                          // quick
+ansi.Bold().Underline().FG(ansi.Red).Text("!!") // chained
 ```
 
-| Constant | Effect |
+| Function | Effect |
 |---|---|
-| `Bold` | Bold |
-| `Dim` | Dim / faint |
-| `Italic` | Italic |
-| `Underline` | Underline |
-| `Blink` | Blink |
-| `RapidBlink` | Rapid blink |
-| `Reverse` | Swap FG/BG |
-| `Hidden` | Hidden |
-| `Strikethrough` | Strikethrough |
-| `Reset` | Reset all attributes |
+| `Bold()` | Bold |
+| `Dim()` | Dim / faint |
+| `Italic()` | Italic |
+| `Underline()` | Underline |
+| `Blink()` | Blink |
+| `RapidBlink()` | Rapid blink |
+| `Reverse()` | Swap FG/BG |
+| `Hidden()` | Hidden |
+| `Strikethrough()` | Strikethrough |
 
-Each has a corresponding `Reset*` variant (e.g. `ResetBold`, `ResetItalic`).
+`Reset` is an exported constant for manual string building. Each style also has a `Reset*` constant (e.g. `ResetBold`, `ResetItalic`).
+
+## Reusable styles
+
+`StyledText` is immutable — branching from a base style is safe:
+
+```go
+errStyle := ansi.Red.FG().Bold()
+warnStyle := ansi.Yellow.FG().Bold()
+
+fmt.Println(errStyle.Text("error: something broke"))
+fmt.Println(warnStyle.Text("warning: check this"))
+```
+
+## `fmt.Stringer` support
+
+`StyledText` implements `fmt.Stringer`, so it works directly with `fmt`:
+
+```go
+fmt.Println(ansi.Bold("hello"))
+fmt.Printf("status: %s\n", ansi.Red.FG("FAIL"))
+```
+
+## Raw escape codes
+
+When `StyledText` has no text set, `.String()` returns just the escape codes:
+
+```go
+codes := ansi.Red.FG().Bold().String()    // "\x1b[38;2;205;0;0m\x1b[1m"
+fmt.Print(codes + "manual building" + ansi.Reset)
+```
 
 ## Cursor movement
 
@@ -140,15 +174,6 @@ fmt.Println(ansi.Link("https://example.com", "click here"))
 
 // Set terminal window title
 fmt.Print(ansi.SetTitle("my app"))
-```
-
-## The `Style` helper
-
-`Style` wraps text with any number of escape sequences and appends `Reset` automatically:
-
-```go
-ansi.Style("text", ansi.Bold, ansi.Red.FG())
-// equivalent to: ansi.Bold + ansi.Red.FG() + "text" + ansi.Reset
 ```
 
 ## License
