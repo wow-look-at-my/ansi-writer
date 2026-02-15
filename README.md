@@ -22,17 +22,19 @@ import (
 )
 
 func main() {
-	// Simple — one attribute
-	fmt.Println(ansi.Red.FG("error!"))
-	fmt.Println(ansi.Bold("important"))
+	// Styles and colors work directly with fmt
+	fmt.Print(ansi.Bold, "important", ansi.Reset, "\n")
+	fmt.Print(ansi.Red.FG(), "error!", ansi.Reset, "\n")
+
+	// Combine multiple styles
+	fmt.Print(ansi.Bold, ansi.Red.FG(), "critical", ansi.Reset, "\n")
 
 	// RGB / Hex colors — downgraded automatically
-	fmt.Println(ansi.RGB(255, 165, 0).FG("orange"))
-	fmt.Println(ansi.Hex(0x1E90FF).FG("dodger blue"))
+	fmt.Print(ansi.RGB(255, 165, 0).FG(), "orange", ansi.Reset, "\n")
+	fmt.Print(ansi.Hex(0x1E90FF).FG(), "dodger blue", ansi.Reset, "\n")
 
-	// Chained — multiple attributes
-	fmt.Println(ansi.Bold().FG(ansi.Yellow).Text("warning"))
-	fmt.Println(ansi.Red.FG().BG(ansi.White).Italic().Text("fancy"))
+	// Background colors
+	fmt.Print(ansi.White.FG(), ansi.Blue.BG(), "highlight", ansi.Reset, "\n")
 }
 ```
 
@@ -46,18 +48,18 @@ func main() {
 
 `BrightBlack` `BrightRed` `BrightGreen` `BrightYellow` `BrightBlue` `BrightMagenta` `BrightCyan` `BrightWhite`
 
-Each has `.FG()` and `.BG()` methods that return a `StyledText` for fluent chaining or immediate rendering:
+Each has `.FG()` and `.BG()` methods that return a `Style`:
 
 ```go
-ansi.Red.FG("error")                   // quick: red text with auto-reset
-ansi.Red.FG().Bold().Text("critical")  // chained: red + bold
+fmt.Print(ansi.Red.FG(), "error", ansi.Reset)
+fmt.Print(ansi.Blue.BG(), "highlight", ansi.Reset)
 ```
 
 ### Custom colors
 
 ```go
-ansi.RGB(255, 128, 0).FG("orange")
-ansi.Hex(0xFF8000).FG("amber")
+fmt.Print(ansi.RGB(255, 128, 0).FG(), "orange", ansi.Reset)
+fmt.Print(ansi.Hex(0xFF8000).FG(), "amber", ansi.Reset)
 ```
 
 Custom colors are automatically downgraded to the nearest match when the terminal doesn't support truecolor:
@@ -81,55 +83,42 @@ ansi.SetMode(ansi.ModeAuto)      // back to auto-detection
 
 ## Text styles
 
-Style functions return `StyledText` — use them standalone or chain them:
+Style vars can be used directly with `fmt`:
 
 ```go
-ansi.Bold("important")                          // quick
-ansi.Bold().Underline().FG(ansi.Red).Text("!!") // chained
+fmt.Print(ansi.Bold, "important", ansi.Reset)
+fmt.Print(ansi.Bold, ansi.Italic, ansi.Red.FG(), "fancy error", ansi.Reset)
 ```
 
-| Function | Effect |
+| Var | Effect |
 |---|---|
-| `Bold()` | Bold |
-| `Dim()` | Dim / faint |
-| `Italic()` | Italic |
-| `Underline()` | Underline |
-| `Blink()` | Blink |
-| `RapidBlink()` | Rapid blink |
-| `Reverse()` | Swap FG/BG |
-| `Hidden()` | Hidden |
-| `Strikethrough()` | Strikethrough |
+| `Bold` | Bold |
+| `Dim` | Dim / faint |
+| `Italic` | Italic |
+| `Underline` | Underline |
+| `Blink` | Blink |
+| `RapidBlink` | Rapid blink |
+| `Reverse` | Swap FG/BG |
+| `Hidden` | Hidden |
+| `Strikethrough` | Strikethrough |
 
-`Reset` is an exported constant for manual string building. Each style also has a `Reset*` constant (e.g. `ResetBold`, `ResetItalic`).
-
-## Reusable styles
-
-`StyledText` is immutable — branching from a base style is safe:
-
-```go
-errStyle := ansi.Red.FG().Bold()
-warnStyle := ansi.Yellow.FG().Bold()
-
-fmt.Println(errStyle.Text("error: something broke"))
-fmt.Println(warnStyle.Text("warning: check this"))
-```
+`Reset` clears all attributes. Each style also has a targeted reset var (e.g. `ResetBold`, `ResetItalic`).
 
 ## `fmt.Stringer` support
 
-`StyledText` implements `fmt.Stringer`, so it works directly with `fmt`:
+`Style` implements `fmt.Stringer`. Because its underlying type is `string`, `fmt.Sprint` does not insert spaces between adjacent `Style` values:
 
 ```go
-fmt.Println(ansi.Bold("hello"))
-fmt.Printf("status: %s\n", ansi.Red.FG("FAIL"))
+s := fmt.Sprint(ansi.Bold, ansi.Red.FG(), "error", ansi.Reset)
+// s == "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
 ```
 
-## Raw escape codes
-
-When `StyledText` has no text set, `.String()` returns just the escape codes:
+In `ModeNone`, `String()` returns an empty string — only your text remains:
 
 ```go
-codes := ansi.Red.FG().Bold().String()    // "\x1b[38;2;205;0;0m\x1b[1m"
-fmt.Print(codes + "manual building" + ansi.Reset)
+ansi.SetMode(ansi.ModeNone)
+s := fmt.Sprint(ansi.Bold, ansi.Red.FG(), "hello", ansi.Reset)
+// s == "hello"
 ```
 
 ## Cursor movement
