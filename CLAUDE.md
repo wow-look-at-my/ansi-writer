@@ -53,13 +53,13 @@ The library is organized into these logical sections within `ansi.go`:
 
 1. **Base escape sequences** — Constants `ESC`, `CSI`, `OSC`, `ST` that form the foundation for all codes.
 
-2. **Style type** — `Style` is a named `string` type with a `String()` method that returns an empty string in `ModeNone`. Because its underlying type is `string`, `fmt.Sprint` does not insert spaces between adjacent `Style` values.
+2. **Style type** — `Style` is a struct with a `String()` method that returns an empty string in `ModeNone`. Color styles store RGB + idx16 data and resolve lazily against the current color mode. Because `Style` is a struct, `fmt.Sprint` inserts spaces between adjacent `Style` values; use `fmt.Sprintf` with `%s` verbs to avoid this.
 
 3. **SGR style and reset codes** — Exported `Style` vars: `Bold`, `Dim`, `Italic`, `Underline`, `Blink`, `RapidBlink`, `Reverse`, `Hidden`, `Strikethrough`, plus `Reset` and individual `Reset*` codes. Used directly with fmt: `fmt.Print(ansi.Bold, "text", ansi.Reset)`.
 
 4. **Color mode system** — `ColorMode` enum (`ModeAuto`, `ModeTrueColor`, `Mode256`, `Mode16`, `ModeNone`) with thread-safe auto-detection from environment variables (`NO_COLOR`, `COLORTERM`, `TERM`). Uses `sync.Once` + `sync.Mutex`.
 
-5. **Color type** — Core `Color` struct with `r, g, b uint8`, `idx16 int8` (index for named colors, -1 for pure RGB), and `FG`/`BG` fields of type `Style`. Constructors: `RGB()`, `Hex()`, and internal `named()`. Color styles are lazily resolved — `Style.String()` decodes the encoded color and computes the escape code based on the current color mode.
+5. **Color type** — Core `Color` struct with `r, g, b uint8`, `idx16 int8` (index for named colors, -1 for pure RGB), and `FG`/`BG` fields of type `Style`. Constructors: `RGB()`, `Hex()`, and internal `named()` (all via `newColor()`). Color styles are lazily resolved — `Style.String()` checks the current color mode and computes the appropriate escape code.
 
 6. **Color downgrading** — Euclidean RGB distance calculations to find the closest match in 16-color and 256-color palettes. The 256-color matcher checks the 6x6x6 cube, grayscale ramp, and base 16 colors.
 

@@ -61,10 +61,10 @@ func TestStyleFmt(t *testing.T) {
 
 func TestStyleFmtWithColor(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := fmt.Sprint(Bold, Red.FG, "error", Reset)
+		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "error", Reset)
 		want := "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
 		if got != want {
-			t.Errorf("fmt.Sprint(Bold, Red.FG, text, Reset) = %q, want %q", got, want)
+			t.Errorf("Sprintf Bold+Red.FG = %q, want %q", got, want)
 		}
 	})
 }
@@ -96,10 +96,10 @@ func TestStyleModeNone(t *testing.T) {
 
 func TestStyleModeNoneFmt(t *testing.T) {
 	withMode(ModeNone, func() {
-		got := fmt.Sprint(Bold, Red.FG, "hello", Reset)
+		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "hello", Reset)
 		want := "hello"
 		if got != want {
-			t.Errorf("ModeNone: fmt.Sprint = %q, want %q", got, want)
+			t.Errorf("ModeNone: Sprintf = %q, want %q", got, want)
 		}
 	})
 }

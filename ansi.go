@@ -4,7 +4,7 @@
 // downgrading based on detected terminal capabilities. Styles and colors
 // implement [fmt.Stringer] for direct use with fmt:
 //
-//	fmt.Print(ansi.Bold, ansi.Red.FG, "error!", ansi.Reset)
+//	fmt.Printf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "error!", ansi.Reset)
 //	fmt.Print(ansi.Italic, "note", ansi.Reset)
 //	fmt.Print(ansi.Cursor(ansi.Pos{10, 5}, ansi.Abs))
 package ansi
@@ -28,32 +28,35 @@ const (
 // Style type
 // ---------------------------------------------------------------------------
 
-// Style represents an ANSI SGR escape sequence. It implements [fmt.Stringer]
+// Style represents an ANSI escape sequence. It implements [fmt.Stringer]
 // so it can be used directly with fmt functions. In [ModeNone], String
-// returns an empty string.
+// returns an empty string. Color styles resolve lazily against the
+// current [ColorMode].
 //
-// Because Style's underlying type is string, fmt.Sprint and fmt.Print
-// will not insert spaces between adjacent Style values.
-type Style string
+// Note: because Style is a struct, fmt.Sprint inserts spaces between
+// adjacent Style values. Use fmt.Sprintf with %s verbs to avoid this:
+//
+//	fmt.Sprintf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "text", ansi.Reset)
+type Style struct {
+	seq         string // escape code for non-color styles
+	r, g, b     uint8
+	idx16       int8
+	color, bg   bool // color: is a color style; bg: background (else foreground)
+}
 
 // String returns the escape sequence, or an empty string in [ModeNone].
-// Color styles are resolved lazily against the current [ColorMode].
 func (s Style) String() string {
 	if GetMode() == ModeNone {
 		return ""
 	}
-	if len(s) == 6 && s[0] == 0 {
-		c := Color{r: s[2], g: s[3], b: s[4], idx16: int8(s[5])}
-		if s[1] == 'f' {
-			return c.fgCode()
+	if s.color {
+		c := Color{r: s.r, g: s.g, b: s.b, idx16: s.idx16}
+		if s.bg {
+			return c.bgCode()
 		}
-		return c.bgCode()
+		return c.fgCode()
 	}
-	return string(s)
-}
-
-func encodeColor(kind byte, c Color) Style {
-	return Style([]byte{0, kind, c.r, c.g, c.b, byte(c.idx16)})
+	return s.seq
 }
 
 // ---------------------------------------------------------------------------
@@ -65,29 +68,29 @@ func encodeColor(kind byte, c Color) Style {
 //	fmt.Print(ansi.Bold, "important", ansi.Reset)
 //	fmt.Print(ansi.Italic, ansi.Underline, "fancy", ansi.Reset)
 var (
-	Bold          = Style(CSI + "1m")
-	Dim           = Style(CSI + "2m")
-	Italic        = Style(CSI + "3m")
-	Underline     = Style(CSI + "4m")
-	Blink         = Style(CSI + "5m")
-	RapidBlink    = Style(CSI + "6m")
-	Reverse       = Style(CSI + "7m")
-	Hidden        = Style(CSI + "8m")
-	Strikethrough = Style(CSI + "9m")
+	Bold          = Style{seq: CSI + "1m"}
+	Dim           = Style{seq: CSI + "2m"}
+	Italic        = Style{seq: CSI + "3m"}
+	Underline     = Style{seq: CSI + "4m"}
+	Blink         = Style{seq: CSI + "5m"}
+	RapidBlink    = Style{seq: CSI + "6m"}
+	Reverse       = Style{seq: CSI + "7m"}
+	Hidden        = Style{seq: CSI + "8m"}
+	Strikethrough = Style{seq: CSI + "9m"}
 )
 
 // SGR reset codes. [Reset] performs a full style reset; the individual
 // Reset* values turn off a single attribute.
 var (
-	Reset              = Style(CSI + "0m")
-	ResetBold          = Style(CSI + "22m")
-	ResetDim           = Style(CSI + "22m") // same as ResetBold per ANSI spec
-	ResetItalic        = Style(CSI + "23m")
-	ResetUnderline     = Style(CSI + "24m")
-	ResetBlink         = Style(CSI + "25m")
-	ResetReverse       = Style(CSI + "27m")
-	ResetHidden        = Style(CSI + "28m")
-	ResetStrikethrough = Style(CSI + "29m")
+	Reset              = Style{seq: CSI + "0m"}
+	ResetBold          = Style{seq: CSI + "22m"}
+	ResetDim           = Style{seq: CSI + "22m"} // same as ResetBold per ANSI spec
+	ResetItalic        = Style{seq: CSI + "23m"}
+	ResetUnderline     = Style{seq: CSI + "24m"}
+	ResetBlink         = Style{seq: CSI + "25m"}
+	ResetReverse       = Style{seq: CSI + "27m"}
+	ResetHidden        = Style{seq: CSI + "28m"}
+	ResetStrikethrough = Style{seq: CSI + "29m"}
 )
 
 // Cursor constants (non-positional).
@@ -191,10 +194,11 @@ type Color struct {
 }
 
 func newColor(r, g, b uint8, idx16 int8) Color {
-	c := Color{r: r, g: g, b: b, idx16: idx16}
-	c.FG = encodeColor('f', c)
-	c.BG = encodeColor('b', c)
-	return c
+	return Color{
+		r: r, g: g, b: b, idx16: idx16,
+		FG: Style{r: r, g: g, b: b, idx16: idx16, color: true},
+		BG: Style{r: r, g: g, b: b, idx16: idx16, color: true, bg: true},
+	}
 }
 
 // RGB creates a 24-bit color. It will be downgraded automatically if the

@@ -26,15 +26,15 @@ func main() {
 	fmt.Print(ansi.Bold, "important", ansi.Reset, "\n")
 	fmt.Print(ansi.Red.FG, "error!", ansi.Reset, "\n")
 
-	// Combine multiple styles
-	fmt.Print(ansi.Bold, ansi.Red.FG, "critical", ansi.Reset, "\n")
+	// Combine multiple styles (use Sprintf %s to avoid spaces between styles)
+	fmt.Printf("%s%s%s%s\n", ansi.Bold, ansi.Red.FG, "critical", ansi.Reset)
 
 	// RGB / Hex colors — downgraded automatically
 	fmt.Print(ansi.RGB(255, 165, 0).FG, "orange", ansi.Reset, "\n")
 	fmt.Print(ansi.Hex(0x1E90FF).FG, "dodger blue", ansi.Reset, "\n")
 
 	// Background colors
-	fmt.Print(ansi.White.FG, ansi.Blue.BG, "highlight", ansi.Reset, "\n")
+	fmt.Printf("%s%s%s%s\n", ansi.White.FG, ansi.Blue.BG, "highlight", ansi.Reset)
 }
 ```
 
@@ -87,7 +87,7 @@ Style vars can be used directly with `fmt`:
 
 ```go
 fmt.Print(ansi.Bold, "important", ansi.Reset)
-fmt.Print(ansi.Bold, ansi.Italic, ansi.Red.FG, "fancy error", ansi.Reset)
+fmt.Printf("%s%s%s%s%s", ansi.Bold, ansi.Italic, ansi.Red.FG, "fancy error", ansi.Reset)
 ```
 
 | Var | Effect |
@@ -106,18 +106,25 @@ fmt.Print(ansi.Bold, ansi.Italic, ansi.Red.FG, "fancy error", ansi.Reset)
 
 ## `fmt.Stringer` support
 
-`Style` implements `fmt.Stringer`. Because its underlying type is `string`, `fmt.Sprint` does not insert spaces between adjacent `Style` values:
+`Style` implements `fmt.Stringer`. Because `Style` is a struct, use `fmt.Sprintf` with `%s` verbs when combining multiple styles to avoid spaces:
 
 ```go
-s := fmt.Sprint(ansi.Bold, ansi.Red.FG, "error", ansi.Reset)
+s := fmt.Sprintf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "error", ansi.Reset)
 // s == "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
+```
+
+A single `Style` next to a plain string works fine with `fmt.Sprint`:
+
+```go
+s := fmt.Sprint(ansi.Red.FG, "error", ansi.Reset)
+// s == "\x1b[38;2;205;0;0merror\x1b[0m"
 ```
 
 In `ModeNone`, `String()` returns an empty string — only your text remains:
 
 ```go
 ansi.SetMode(ansi.ModeNone)
-s := fmt.Sprint(ansi.Bold, ansi.Red.FG, "hello", ansi.Reset)
+s := fmt.Sprintf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "hello", ansi.Reset)
 // s == "hello"
 ```
 
