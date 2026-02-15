@@ -11,8 +11,8 @@
 
 ```
 ansi-writer/
-├── ansi.go          # Entire library implementation (~445 lines)
-├── ansi_test.go     # Test suite (~465 lines)
+├── ansi.go          # Entire library implementation (~615 lines)
+├── ansi_test.go     # Test suite (~600 lines)
 └── go.mod           # Module definition (zero external dependencies)
 ```
 
@@ -53,21 +53,23 @@ The library is organized into these logical sections within `ansi.go`:
 
 1. **Base escape sequences** — Constants `ESC`, `CSI`, `OSC`, `ST` that form the foundation for all codes.
 
-2. **SGR style constants** — `Bold`, `Italic`, `Underline`, `Reset`, etc. Pre-built escape strings.
+2. **SGR reset constants & internal style codes** — `Reset`, `ResetBold`, etc. are exported constants. The style codes (`boldCode`, `italicCode`, etc.) are unexported, used internally by the style functions and `StyledText` methods.
 
 3. **Color mode system** — `ColorMode` enum (`ModeAuto`, `ModeTrueColor`, `Mode256`, `Mode16`, `ModeNone`) with thread-safe auto-detection from environment variables (`NO_COLOR`, `COLORTERM`, `TERM`). Uses `sync.Once` + `sync.Mutex`.
 
-4. **Color type** — Core `Color` struct with `r, g, b uint8` and `idx16 int8` (index for named colors, -1 for pure RGB). Constructors: `RGB()`, `Hex()`, and internal `named()`. Methods: `FG()`, `BG()` which emit mode-appropriate escape sequences.
+4. **Color type** — Core `Color` struct with `r, g, b uint8` and `idx16 int8` (index for named colors, -1 for pure RGB). Constructors: `RGB()`, `Hex()`, and internal `named()`. Methods `FG()` and `BG()` return `StyledText` for fluent chaining.
 
-5. **Color downgrading** — Euclidean RGB distance calculations to find the closest match in 16-color and 256-color palettes. The 256-color matcher checks the 6x6x6 cube, grayscale ramp, and base 16 colors.
+5. **StyledText type** — Immutable fluent builder that accumulates ANSI escape codes. Chaining methods (`Bold()`, `Italic()`, `FG(Color)`, `BG(Color)`, etc.) return new `StyledText` values. Terminal method `Text(string) string` renders the final styled string. Implements `fmt.Stringer`.
 
-6. **Cursor control** — `Pos{X, Y}` type and `Cursor()` function supporting both absolute (`Abs`) and relative (`Rel`) positioning.
+6. **SGR style functions** — Package-level functions `Bold()`, `Italic()`, `Underline()`, etc. that return `StyledText`. Accept optional text argument as a shortcut: `Bold("text")` sets text for immediate rendering via Stringer.
 
-7. **Screen/scroll control** — `EraseScreen*`, `EraseLine*`, `ScrollUp()`, `ScrollDown()`, cursor save/restore/show/hide.
+7. **Color downgrading** — Euclidean RGB distance calculations to find the closest match in 16-color and 256-color palettes. The 256-color matcher checks the 6x6x6 cube, grayscale ramp, and base 16 colors.
 
-8. **OSC functions** — `Link()` for OSC 8 hyperlinks, `SetTitle()` for terminal window titles.
+8. **Cursor control** — `Pos{X, Y}` type and `Cursor()` function supporting both absolute (`Abs`) and relative (`Rel`) positioning.
 
-9. **Style helper** — `Style(text, codes...)` wraps text with escape codes and appends `Reset`.
+9. **Screen/scroll control** — `EraseScreen*`, `EraseLine*`, `ScrollUp()`, `ScrollDown()`, cursor save/restore/show/hide.
+
+10. **OSC functions** — `Link()` for OSC 8 hyperlinks, `SetTitle()` for terminal window titles.
 
 ## Code Conventions
 
@@ -76,6 +78,7 @@ The library is organized into these logical sections within `ansi.go`:
 - **No error returns:** The library assumes valid input and does not return errors.
 - **Thread safety:** Global color mode state is protected by `sync.Mutex`.
 - **String building:** Uses `strings.Builder` for multi-part escape sequences, direct concatenation for simple ones.
+- **Immutable builders:** `StyledText` chaining methods return new values, never mutate the receiver. This makes reusable styles safe.
 - **No interfaces:** Simple function/method API only.
 
 ## Testing Conventions
@@ -83,23 +86,27 @@ The library is organized into these logical sections within `ansi.go`:
 - **Table-driven tests** using anonymous structs with descriptive field names.
 - **Environment manipulation** via `t.Setenv()` for color mode detection tests.
 - **Helper function** `withMode(m ColorMode, fn func())` temporarily sets the color mode for a test block, then restores it.
-- **Section comments** group related tests (style constants, cursor, erase, color modes, downgrading, etc.).
-- Tests cover: all SGR constants, cursor positioning (absolute and relative), erase sequences, scroll, color mode detection, FG/BG output in all modes, color downgrading accuracy, OSC links/titles, and the `Style()` helper.
+- **Section comments** group related tests (SGR codes, cursor, erase, color modes, downgrading, StyledText chaining, etc.).
+- Tests cover: all SGR codes, style functions with text shortcuts, cursor positioning (absolute and relative), erase sequences, scroll, color mode detection, FG/BG raw codes in all modes, FG/BG with text wrapping, StyledText chaining and immutability, reusable styles, ModeNone behavior, color downgrading accuracy, OSC links/titles.
 
 ## Public API Surface
 
-**Types:** `Color`, `ColorMode`, `Pos`
+**Types:** `Color`, `ColorMode`, `Pos`, `StyledText`
 
 **Color constructors:** `RGB(r, g, b)`, `Hex(0xRRGGBB)`
 
 **Named colors:** `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `White` and bright variants (`BrightBlack`, `BrightRed`, etc.)
 
-**Color methods:** `FG() string`, `BG() string`
+**Color methods:** `FG(text ...string) StyledText`, `BG(text ...string) StyledText`
+
+**Style functions:** `Bold(text ...string)`, `Dim(...)`, `Italic(...)`, `Underline(...)`, `Blink(...)`, `RapidBlink(...)`, `Reverse(...)`, `Hidden(...)`, `Strikethrough(...)` — all return `StyledText`
+
+**StyledText methods:** `FG(Color)`, `BG(Color)`, `Bold()`, `Dim()`, `Italic()`, `Underline()`, `Blink()`, `RapidBlink()`, `Reverse()`, `Hidden()`, `Strikethrough()` (chaining), `Text(string) string` (terminal), `String() string` (Stringer)
+
+**Constants:** `Reset`, `ResetBold`, `ResetDim`, `ResetItalic`, `ResetUnderline`, `ResetBlink`, `ResetReverse`, `ResetHidden`, `ResetStrikethrough`
 
 **Mode control:** `SetMode(ColorMode)`, `GetMode() ColorMode`
 
 **Cursor/screen:** `Cursor(Pos, bool)`, `ScrollUp(n)`, `ScrollDown(n)`, plus erase/save/restore/show/hide constants
 
 **OSC:** `Link(url, text)`, `SetTitle(title)`
-
-**Styling:** `Style(text, codes...)`
