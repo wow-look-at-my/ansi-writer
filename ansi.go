@@ -1,12 +1,11 @@
 // Package ansi provides simple ANSI escape code utilities for terminal output.
 //
 // Colors are represented by the [Color] type, which handles automatic
-// downgrading based on detected terminal capabilities. Specify colors by
-// name or RGB value — the library emits the best possible escape sequence.
+// downgrading based on detected terminal capabilities. Styles and colors
+// implement [fmt.Stringer] for direct use with fmt:
 //
-//	fmt.Println(ansi.Red.FG() + "error!" + ansi.Reset)
-//	fmt.Println(ansi.RGB(255, 165, 0).FG() + "orange" + ansi.Reset)
-//	fmt.Println(ansi.Style("warning", ansi.Bold, ansi.Yellow.FG()))
+//	fmt.Printf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "error!", ansi.Reset)
+//	fmt.Print(ansi.Italic, "note", ansi.Reset)
 //	fmt.Print(ansi.Cursor(ansi.Pos{10, 5}, ansi.Abs))
 package ansi
 
@@ -25,27 +24,73 @@ const (
 	ST  = ESC + "\\" // String Terminator
 )
 
-// SGR style constants. These are plain strings for easy concatenation.
-const (
-	Reset         = CSI + "0m"
-	Bold          = CSI + "1m"
-	Dim           = CSI + "2m"
-	Italic        = CSI + "3m"
-	Underline     = CSI + "4m"
-	Blink         = CSI + "5m"
-	RapidBlink    = CSI + "6m"
-	Reverse       = CSI + "7m"
-	Hidden        = CSI + "8m"
-	Strikethrough = CSI + "9m"
+// ---------------------------------------------------------------------------
+// Style type
+// ---------------------------------------------------------------------------
 
-	ResetBold          = CSI + "22m"
-	ResetDim           = CSI + "22m" // same as ResetBold per ANSI spec
-	ResetItalic        = CSI + "23m"
-	ResetUnderline     = CSI + "24m"
-	ResetBlink         = CSI + "25m"
-	ResetReverse       = CSI + "27m"
-	ResetHidden        = CSI + "28m"
-	ResetStrikethrough = CSI + "29m"
+// Style represents an ANSI escape sequence. It implements [fmt.Stringer]
+// so it can be used directly with fmt functions. In [ModeNone], String
+// returns an empty string. Color styles resolve lazily against the
+// current [ColorMode].
+//
+// Note: because Style is a struct, fmt.Sprint inserts spaces between
+// adjacent Style values. Use fmt.Sprintf with %s verbs to avoid this:
+//
+//	fmt.Sprintf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "text", ansi.Reset)
+type Style struct {
+	seq         string // escape code for non-color styles
+	r, g, b     uint8
+	idx16       int8
+	color, bg   bool // color: is a color style; bg: background (else foreground)
+}
+
+// String returns the escape sequence, or an empty string in [ModeNone].
+func (s Style) String() string {
+	if GetMode() == ModeNone {
+		return ""
+	}
+	if s.color {
+		c := Color{r: s.r, g: s.g, b: s.b, idx16: s.idx16}
+		if s.bg {
+			return c.bgCode()
+		}
+		return c.fgCode()
+	}
+	return s.seq
+}
+
+// ---------------------------------------------------------------------------
+// SGR style and reset codes
+// ---------------------------------------------------------------------------
+
+// SGR style codes. Use directly with fmt:
+//
+//	fmt.Print(ansi.Bold, "important", ansi.Reset)
+//	fmt.Print(ansi.Italic, ansi.Underline, "fancy", ansi.Reset)
+var (
+	Bold          = Style{seq: CSI + "1m"}
+	Dim           = Style{seq: CSI + "2m"}
+	Italic        = Style{seq: CSI + "3m"}
+	Underline     = Style{seq: CSI + "4m"}
+	Blink         = Style{seq: CSI + "5m"}
+	RapidBlink    = Style{seq: CSI + "6m"}
+	Reverse       = Style{seq: CSI + "7m"}
+	Hidden        = Style{seq: CSI + "8m"}
+	Strikethrough = Style{seq: CSI + "9m"}
+)
+
+// SGR reset codes. [Reset] performs a full style reset; the individual
+// Reset* values turn off a single attribute.
+var (
+	Reset              = Style{seq: CSI + "0m"}
+	ResetBold          = Style{seq: CSI + "22m"}
+	ResetDim           = Style{seq: CSI + "22m"} // same as ResetBold per ANSI spec
+	ResetItalic        = Style{seq: CSI + "23m"}
+	ResetUnderline     = Style{seq: CSI + "24m"}
+	ResetBlink         = Style{seq: CSI + "25m"}
+	ResetReverse       = Style{seq: CSI + "27m"}
+	ResetHidden        = Style{seq: CSI + "28m"}
+	ResetStrikethrough = Style{seq: CSI + "29m"}
 )
 
 // Cursor constants (non-positional).
@@ -137,29 +182,43 @@ func detectMode() ColorMode {
 // ---------------------------------------------------------------------------
 
 // Color represents a color that renders at the best available color depth.
+// The FG and BG fields are [Style] values for use with fmt:
+//
+//	fmt.Print(ansi.Red.FG, "error", ansi.Reset)
+//	fmt.Print(ansi.Blue.BG, "highlight", ansi.Reset)
 type Color struct {
 	r, g, b uint8
 	idx16   int8 // 0-15 for named colors, -1 for pure RGB
+	FG      Style
+	BG      Style
+}
+
+func newColor(r, g, b uint8, idx16 int8) Color {
+	return Color{
+		r: r, g: g, b: b, idx16: idx16,
+		FG: Style{r: r, g: g, b: b, idx16: idx16, color: true},
+		BG: Style{r: r, g: g, b: b, idx16: idx16, color: true, bg: true},
+	}
 }
 
 // RGB creates a 24-bit color. It will be downgraded automatically if the
 // terminal doesn't support true color.
 func RGB(r, g, b uint8) Color {
-	return Color{r: r, g: g, b: b, idx16: -1}
+	return newColor(r, g, b, -1)
 }
 
 // Hex creates a color from a 24-bit hex value (e.g. 0xFF8800).
 func Hex(hex uint32) Color {
-	return Color{
-		r:     uint8((hex >> 16) & 0xFF),
-		g:     uint8((hex >> 8) & 0xFF),
-		b:     uint8(hex & 0xFF),
-		idx16: -1,
-	}
+	return newColor(
+		uint8((hex>>16)&0xFF),
+		uint8((hex>>8)&0xFF),
+		uint8(hex&0xFF),
+		-1,
+	)
 }
 
 func named(idx int8, r, g, b uint8) Color {
-	return Color{r: r, g: g, b: b, idx16: idx}
+	return newColor(r, g, b, idx)
 }
 
 // Standard named colors.
@@ -183,9 +242,8 @@ var (
 	BrightWhite   = named(15, 255, 255, 255)
 )
 
-// FG returns the foreground escape sequence for this color, respecting the
-// current color mode.
-func (c Color) FG() string {
+// fgCode returns the raw foreground escape sequence string.
+func (c Color) fgCode() string {
 	switch GetMode() {
 	case ModeNone:
 		return ""
@@ -198,9 +256,8 @@ func (c Color) FG() string {
 	}
 }
 
-// BG returns the background escape sequence for this color, respecting the
-// current color mode.
-func (c Color) BG() string {
+// bgCode returns the raw background escape sequence string.
+func (c Color) bgCode() string {
 	switch GetMode() {
 	case ModeNone:
 		return ""
@@ -417,23 +474,6 @@ func Link(url, text string) string {
 // SetTitle sets the terminal window title.
 func SetTitle(title string) string {
 	return OSC + "0;" + title + ST
-}
-
-// ---------------------------------------------------------------------------
-// Convenience
-// ---------------------------------------------------------------------------
-
-// Style wraps text with the given escape sequences and appends [Reset].
-//
-//	ansi.Style("warning", ansi.Bold, ansi.Yellow.FG())
-func Style(text string, codes ...string) string {
-	var b strings.Builder
-	for _, c := range codes {
-		b.WriteString(c)
-	}
-	b.WriteString(text)
-	b.WriteString(Reset)
-	return b.String()
 }
 
 // ---------------------------------------------------------------------------

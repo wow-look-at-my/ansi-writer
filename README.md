@@ -22,18 +22,19 @@ import (
 )
 
 func main() {
-	// Named colors
-	fmt.Println(ansi.Red.FG() + "error!" + ansi.Reset)
+	// Styles and colors work directly with fmt
+	fmt.Print(ansi.Bold, "important", ansi.Reset, "\n")
+	fmt.Print(ansi.Red.FG, "error!", ansi.Reset, "\n")
+
+	// Combine multiple styles (use Sprintf %s to avoid spaces between styles)
+	fmt.Printf("%s%s%s%s\n", ansi.Bold, ansi.Red.FG, "critical", ansi.Reset)
 
 	// RGB / Hex colors — downgraded automatically
-	fmt.Println(ansi.RGB(255, 165, 0).FG() + "orange" + ansi.Reset)
-	fmt.Println(ansi.Hex(0x1E90FF).FG() + "dodger blue" + ansi.Reset)
-
-	// Style helper applies codes and appends Reset for you
-	fmt.Println(ansi.Style("warning", ansi.Bold, ansi.Yellow.FG()))
+	fmt.Print(ansi.RGB(255, 165, 0).FG, "orange", ansi.Reset, "\n")
+	fmt.Print(ansi.Hex(0x1E90FF).FG, "dodger blue", ansi.Reset, "\n")
 
 	// Background colors
-	fmt.Println(ansi.Style("highlighted", ansi.White.FG(), ansi.Blue.BG()))
+	fmt.Printf("%s%s%s%s\n", ansi.White.FG, ansi.Blue.BG, "highlight", ansi.Reset)
 }
 ```
 
@@ -47,13 +48,18 @@ func main() {
 
 `BrightBlack` `BrightRed` `BrightGreen` `BrightYellow` `BrightBlue` `BrightMagenta` `BrightCyan` `BrightWhite`
 
-Each has `.FG()` and `.BG()` methods that return the appropriate escape sequence string.
+Each has `.FG` and `.BG` fields of type `Style`:
+
+```go
+fmt.Print(ansi.Red.FG, "error", ansi.Reset)
+fmt.Print(ansi.Blue.BG, "highlight", ansi.Reset)
+```
 
 ### Custom colors
 
 ```go
-ansi.RGB(255, 128, 0)  // from RGB components
-ansi.Hex(0xFF8000)     // from a hex value
+fmt.Print(ansi.RGB(255, 128, 0).FG, "orange", ansi.Reset)
+fmt.Print(ansi.Hex(0xFF8000).FG, "amber", ansi.Reset)
 ```
 
 Custom colors are automatically downgraded to the nearest match when the terminal doesn't support truecolor:
@@ -63,7 +69,7 @@ Custom colors are automatically downgraded to the nearest match when the termina
 | Truecolor (`COLORTERM=truecolor`) | Exact 24-bit RGB |
 | 256 colors (`TERM=*256color`) | Nearest from 6x6x6 cube, grayscale ramp, or base 16 |
 | 16 colors (default) | Nearest standard ANSI color |
-| No color (`NO_COLOR` set) | Empty string — output is clean |
+| No color (`NO_COLOR` set) | Plain text — no escape codes emitted |
 
 ### Forcing a color mode
 
@@ -77,13 +83,14 @@ ansi.SetMode(ansi.ModeAuto)      // back to auto-detection
 
 ## Text styles
 
-All styles are plain strings — concatenate them directly:
+Style vars can be used directly with `fmt`:
 
 ```go
-fmt.Print(ansi.Bold + ansi.Underline + "important" + ansi.Reset)
+fmt.Print(ansi.Bold, "important", ansi.Reset)
+fmt.Printf("%s%s%s%s%s", ansi.Bold, ansi.Italic, ansi.Red.FG, "fancy error", ansi.Reset)
 ```
 
-| Constant | Effect |
+| Var | Effect |
 |---|---|
 | `Bold` | Bold |
 | `Dim` | Dim / faint |
@@ -94,9 +101,32 @@ fmt.Print(ansi.Bold + ansi.Underline + "important" + ansi.Reset)
 | `Reverse` | Swap FG/BG |
 | `Hidden` | Hidden |
 | `Strikethrough` | Strikethrough |
-| `Reset` | Reset all attributes |
 
-Each has a corresponding `Reset*` variant (e.g. `ResetBold`, `ResetItalic`).
+`Reset` clears all attributes. Each style also has a targeted reset var (e.g. `ResetBold`, `ResetItalic`).
+
+## `fmt.Stringer` support
+
+`Style` implements `fmt.Stringer`. Because `Style` is a struct, use `fmt.Sprintf` with `%s` verbs when combining multiple styles to avoid spaces:
+
+```go
+s := fmt.Sprintf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "error", ansi.Reset)
+// s == "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
+```
+
+A single `Style` next to a plain string works fine with `fmt.Sprint`:
+
+```go
+s := fmt.Sprint(ansi.Red.FG, "error", ansi.Reset)
+// s == "\x1b[38;2;205;0;0merror\x1b[0m"
+```
+
+In `ModeNone`, `String()` returns an empty string — only your text remains:
+
+```go
+ansi.SetMode(ansi.ModeNone)
+s := fmt.Sprintf("%s%s%s%s", ansi.Bold, ansi.Red.FG, "hello", ansi.Reset)
+// s == "hello"
+```
 
 ## Cursor movement
 
@@ -140,15 +170,6 @@ fmt.Println(ansi.Link("https://example.com", "click here"))
 
 // Set terminal window title
 fmt.Print(ansi.SetTitle("my app"))
-```
-
-## The `Style` helper
-
-`Style` wraps text with any number of escape sequences and appends `Reset` automatically:
-
-```go
-ansi.Style("text", ansi.Bold, ansi.Red.FG())
-// equivalent to: ansi.Bold + ansi.Red.FG() + "text" + ansi.Reset
 ```
 
 ## License

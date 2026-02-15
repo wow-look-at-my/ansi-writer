@@ -1,45 +1,107 @@
 package ansi
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
 
 // ---------------------------------------------------------------------------
-// Style constants
+// SGR codes (style and reset constants)
 // ---------------------------------------------------------------------------
 
-func TestStyleConstants(t *testing.T) {
-	tests := []struct {
-		name string
-		got  string
-		want string
-	}{
-		{"Reset", Reset, "\x1b[0m"},
-		{"Bold", Bold, "\x1b[1m"},
-		{"Dim", Dim, "\x1b[2m"},
-		{"Italic", Italic, "\x1b[3m"},
-		{"Underline", Underline, "\x1b[4m"},
-		{"Blink", Blink, "\x1b[5m"},
-		{"RapidBlink", RapidBlink, "\x1b[6m"},
-		{"Reverse", Reverse, "\x1b[7m"},
-		{"Hidden", Hidden, "\x1b[8m"},
-		{"Strikethrough", Strikethrough, "\x1b[9m"},
-		{"ResetBold", ResetBold, "\x1b[22m"},
-		{"ResetItalic", ResetItalic, "\x1b[23m"},
-		{"ResetUnderline", ResetUnderline, "\x1b[24m"},
-		{"ResetBlink", ResetBlink, "\x1b[25m"},
-		{"ResetReverse", ResetReverse, "\x1b[27m"},
-		{"ResetHidden", ResetHidden, "\x1b[28m"},
-		{"ResetStrikethrough", ResetStrikethrough, "\x1b[29m"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("got %q, want %q", tt.got, tt.want)
-			}
-		})
-	}
+func TestSGRCodes(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		tests := []struct {
+			name string
+			got  string
+			want string
+		}{
+			{"Bold", Bold.String(), "\x1b[1m"},
+			{"Dim", Dim.String(), "\x1b[2m"},
+			{"Italic", Italic.String(), "\x1b[3m"},
+			{"Underline", Underline.String(), "\x1b[4m"},
+			{"Blink", Blink.String(), "\x1b[5m"},
+			{"RapidBlink", RapidBlink.String(), "\x1b[6m"},
+			{"Reverse", Reverse.String(), "\x1b[7m"},
+			{"Hidden", Hidden.String(), "\x1b[8m"},
+			{"Strikethrough", Strikethrough.String(), "\x1b[9m"},
+			{"Reset", Reset.String(), "\x1b[0m"},
+			{"ResetBold", ResetBold.String(), "\x1b[22m"},
+			{"ResetItalic", ResetItalic.String(), "\x1b[23m"},
+			{"ResetUnderline", ResetUnderline.String(), "\x1b[24m"},
+			{"ResetBlink", ResetBlink.String(), "\x1b[25m"},
+			{"ResetReverse", ResetReverse.String(), "\x1b[27m"},
+			{"ResetHidden", ResetHidden.String(), "\x1b[28m"},
+			{"ResetStrikethrough", ResetStrikethrough.String(), "\x1b[29m"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if tt.got != tt.want {
+					t.Errorf("got %q, want %q", tt.got, tt.want)
+				}
+			})
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Style works with fmt
+// ---------------------------------------------------------------------------
+
+func TestStyleFmt(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := fmt.Sprint(Bold, "hello", Reset)
+		want := "\x1b[1mhello\x1b[0m"
+		if got != want {
+			t.Errorf("fmt.Sprint(Bold, text, Reset) = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestStyleFmtWithColor(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "error", Reset)
+		want := "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
+		if got != want {
+			t.Errorf("Sprintf Bold+Red.FG = %q, want %q", got, want)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Style ModeNone
+// ---------------------------------------------------------------------------
+
+func TestStyleModeNone(t *testing.T) {
+	withMode(ModeNone, func() {
+		tests := []struct {
+			name string
+			s    Style
+		}{
+			{"Bold", Bold},
+			{"Italic", Italic},
+			{"Reset", Reset},
+			{"ResetBold", ResetBold},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				if got := tt.s.String(); got != "" {
+					t.Errorf("ModeNone: %s.String() = %q, want empty", tt.name, got)
+				}
+			})
+		}
+	})
+}
+
+func TestStyleModeNoneFmt(t *testing.T) {
+	withMode(ModeNone, func() {
+		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "hello", Reset)
+		want := "hello"
+		if got != want {
+			t.Errorf("ModeNone: Sprintf = %q, want %q", got, want)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +160,6 @@ func TestEraseConstants(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDetectModeNoColor(t *testing.T) {
-	// Reset global state for this test
 	old := mode
 	defer func() { mode = old }()
 
@@ -158,7 +219,7 @@ func TestSetModeOverride(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Color FG/BG in TrueColor mode
+// Color FG/BG raw codes in TrueColor mode
 // ---------------------------------------------------------------------------
 
 func withMode(m ColorMode, fn func()) {
@@ -182,9 +243,9 @@ func TestColorFGTrueColor(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				got := tt.color.FG()
+				got := tt.color.fgCode()
 				if got != tt.want {
-					t.Errorf("FG() = %q, want %q", got, tt.want)
+					t.Errorf("fgCode() = %q, want %q", got, tt.want)
 				}
 			})
 		}
@@ -193,10 +254,54 @@ func TestColorFGTrueColor(t *testing.T) {
 
 func TestColorBGTrueColor(t *testing.T) {
 	withMode(ModeTrueColor, func() {
-		got := RGB(0, 0, 255).BG()
+		got := RGB(0, 0, 255).bgCode()
 		want := "\x1b[48;2;0;0;255m"
 		if got != want {
-			t.Errorf("BG() = %q, want %q", got, want)
+			t.Errorf("bgCode() = %q, want %q", got, want)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Color FG/BG as Style in TrueColor mode
+// ---------------------------------------------------------------------------
+
+func TestColorFGStyle(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := Red.FG.String()
+		want := "\x1b[38;2;205;0;0m"
+		if got != want {
+			t.Errorf("Red.FG.String() = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestColorBGStyle(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := Blue.BG.String()
+		want := "\x1b[48;2;0;0;238m"
+		if got != want {
+			t.Errorf("Blue.BG.String() = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestColorFGFmt(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := fmt.Sprint(Red.FG, "error", Reset)
+		want := "\x1b[38;2;205;0;0merror\x1b[0m"
+		if got != want {
+			t.Errorf("fmt.Sprint(Red.FG, text, Reset) = %q, want %q", got, want)
+		}
+	})
+}
+
+func TestColorBGFmt(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		got := fmt.Sprint(Blue.BG, "warning", Reset)
+		want := "\x1b[48;2;0;0;238mwarning\x1b[0m"
+		if got != want {
+			t.Errorf("fmt.Sprint(Blue.BG, text, Reset) = %q, want %q", got, want)
 		}
 	})
 }
@@ -231,9 +336,9 @@ func TestColorFG16Named(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				got := tt.color.FG()
+				got := tt.color.fgCode()
 				if got != tt.want {
-					t.Errorf("FG() = %q, want %q", got, tt.want)
+					t.Errorf("fgCode() = %q, want %q", got, tt.want)
 				}
 			})
 		}
@@ -255,9 +360,9 @@ func TestColorBG16Named(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				got := tt.color.BG()
+				got := tt.color.bgCode()
 				if got != tt.want {
-					t.Errorf("BG() = %q, want %q", got, tt.want)
+					t.Errorf("bgCode() = %q, want %q", got, tt.want)
 				}
 			})
 		}
@@ -271,16 +376,16 @@ func TestColorBG16Named(t *testing.T) {
 func TestRGBDowngradeTo16(t *testing.T) {
 	withMode(Mode16, func() {
 		tests := []struct {
-			name string
+			name    string
 			r, g, b uint8
 			wantIdx int8
 		}{
-			{"pure red", 255, 0, 0, 9},       // bright red
-			{"pure green", 0, 255, 0, 10},     // bright green
-			{"pure blue", 0, 0, 255, 4},       // standard blue (0,0,238 is closer than bright blue 92,92,255)
-			{"white", 255, 255, 255, 15},       // bright white
-			{"black", 0, 0, 0, 0},             // black
-			{"near red", 200, 10, 10, 1},      // standard red
+			{"pure red", 255, 0, 0, 9},
+			{"pure green", 0, 255, 0, 10},
+			{"pure blue", 0, 0, 255, 4},
+			{"white", 255, 255, 255, 15},
+			{"black", 0, 0, 0, 0},
+			{"near red", 200, 10, 10, 1},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
@@ -304,9 +409,9 @@ func TestRGBDowngradeTo256(t *testing.T) {
 		r, g, b uint8
 		wantIdx uint8
 	}{
-		{"pure white", 255, 255, 255, 231}, // cube (5,5,5) = exact match
-		{"pure black", 0, 0, 0, 16},        // cube (0,0,0) = exact match
-		{"mid gray", 128, 128, 128, 244},   // grayscale ramp
+		{"pure white", 255, 255, 255, 231},
+		{"pure black", 0, 0, 0, 16},
+		{"mid gray", 128, 128, 128, 244},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -320,11 +425,10 @@ func TestRGBDowngradeTo256(t *testing.T) {
 
 func TestColorFG256(t *testing.T) {
 	withMode(Mode256, func() {
-		// Named colors in 256 mode should use their index
-		got := Red.FG()
+		got := Red.fgCode()
 		want := "\x1b[38;5;1m"
 		if got != want {
-			t.Errorf("Red.FG() in Mode256 = %q, want %q", got, want)
+			t.Errorf("Red.fgCode() in Mode256 = %q, want %q", got, want)
 		}
 	})
 }
@@ -335,11 +439,35 @@ func TestColorFG256(t *testing.T) {
 
 func TestModeNone(t *testing.T) {
 	withMode(ModeNone, func() {
-		if got := Red.FG(); got != "" {
-			t.Errorf("ModeNone: Red.FG() = %q, want empty", got)
+		if got := Red.fgCode(); got != "" {
+			t.Errorf("ModeNone: Red.fgCode() = %q, want empty", got)
 		}
-		if got := RGB(255, 0, 0).BG(); got != "" {
-			t.Errorf("ModeNone: RGB.BG() = %q, want empty", got)
+		if got := RGB(255, 0, 0).bgCode(); got != "" {
+			t.Errorf("ModeNone: RGB.bgCode() = %q, want empty", got)
+		}
+	})
+}
+
+func TestColorFGLazyResolution(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		want16 := "\x1b[31m"
+		wantTC := "\x1b[38;2;205;0;0m"
+		fg := Red.FG
+		if got := fg.String(); got != wantTC {
+			t.Errorf("TrueColor: Red.FG.String() = %q, want %q", got, wantTC)
+		}
+		SetMode(Mode16)
+		if got := fg.String(); got != want16 {
+			t.Errorf("Mode16: Red.FG.String() = %q, want %q", got, want16)
+		}
+	})
+}
+
+func TestModeNoneColorFG(t *testing.T) {
+	withMode(ModeNone, func() {
+		got := Red.FG.String()
+		if got != "" {
+			t.Errorf("ModeNone: Red.FG.String() = %q, want empty", got)
 		}
 	})
 }
@@ -439,27 +567,5 @@ func TestSetTitle(t *testing.T) {
 	want := "\x1b]0;My App\x1b\\"
 	if got != want {
 		t.Errorf("SetTitle = %q, want %q", got, want)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Style
-// ---------------------------------------------------------------------------
-
-func TestStyle(t *testing.T) {
-	withMode(ModeTrueColor, func() {
-		got := Style("hello", Bold, Red.FG())
-		want := "\x1b[1m\x1b[38;2;205;0;0mhello\x1b[0m"
-		if got != want {
-			t.Errorf("Style = %q, want %q", got, want)
-		}
-	})
-}
-
-func TestStyleNoArgs(t *testing.T) {
-	got := Style("plain")
-	want := "plain\x1b[0m"
-	if got != want {
-		t.Errorf("Style with no codes = %q, want %q", got, want)
 	}
 }
