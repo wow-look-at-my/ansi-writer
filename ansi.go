@@ -4,9 +4,9 @@
 // downgrading based on detected terminal capabilities. Specify colors by
 // name or RGB value — the library emits the best possible escape sequence.
 //
-//	fmt.Println(ansi.Red.FG() + "error!" + ansi.Reset)
-//	fmt.Println(ansi.RGB(255, 165, 0).FG() + "orange" + ansi.Reset)
-//	fmt.Println(ansi.Style("warning", ansi.Bold, ansi.Yellow.FG()))
+//	fmt.Println(ansi.Red.FG("error!"))
+//	fmt.Println(ansi.RGB(255, 165, 0).FG("orange"))
+//	fmt.Println(ansi.Bold().FG(ansi.Yellow).Text("warning"))
 //	fmt.Print(ansi.Cursor(ansi.Pos{10, 5}, ansi.Abs))
 package ansi
 
@@ -25,19 +25,10 @@ const (
 	ST  = ESC + "\\" // String Terminator
 )
 
-// SGR style constants. These are plain strings for easy concatenation.
+// SGR reset codes. Reset performs a full style reset; the individual
+// Reset* constants turn off a single attribute.
 const (
-	Reset         = CSI + "0m"
-	Bold          = CSI + "1m"
-	Dim           = CSI + "2m"
-	Italic        = CSI + "3m"
-	Underline     = CSI + "4m"
-	Blink         = CSI + "5m"
-	RapidBlink    = CSI + "6m"
-	Reverse       = CSI + "7m"
-	Hidden        = CSI + "8m"
-	Strikethrough = CSI + "9m"
-
+	Reset              = CSI + "0m"
 	ResetBold          = CSI + "22m"
 	ResetDim           = CSI + "22m" // same as ResetBold per ANSI spec
 	ResetItalic        = CSI + "23m"
@@ -46,6 +37,19 @@ const (
 	ResetReverse       = CSI + "27m"
 	ResetHidden        = CSI + "28m"
 	ResetStrikethrough = CSI + "29m"
+)
+
+// Internal SGR codes used by style functions and StyledText methods.
+const (
+	boldCode          = CSI + "1m"
+	dimCode           = CSI + "2m"
+	italicCode        = CSI + "3m"
+	underlineCode     = CSI + "4m"
+	blinkCode         = CSI + "5m"
+	rapidBlinkCode    = CSI + "6m"
+	reverseCode       = CSI + "7m"
+	hiddenCode        = CSI + "8m"
+	strikethroughCode = CSI + "9m"
 )
 
 // Cursor constants (non-positional).
@@ -183,9 +187,31 @@ var (
 	BrightWhite   = named(15, 255, 255, 255)
 )
 
-// FG returns the foreground escape sequence for this color, respecting the
-// current color mode.
-func (c Color) FG() string {
+// FG returns a [StyledText] with this color set as the foreground. If text
+// is provided, it is set on the StyledText for immediate rendering.
+//
+//	ansi.Red.FG()              // chainable: ansi.Red.FG().Bold().Text("err")
+//	ansi.Red.FG("error")       // shortcut:  fmt.Println(ansi.Red.FG("error"))
+func (c Color) FG(text ...string) StyledText {
+	s := StyledText{codes: []string{c.fgCode()}}
+	if len(text) > 0 {
+		s.text = text[0]
+	}
+	return s
+}
+
+// BG returns a [StyledText] with this color set as the background. If text
+// is provided, it is set on the StyledText for immediate rendering.
+func (c Color) BG(text ...string) StyledText {
+	s := StyledText{codes: []string{c.bgCode()}}
+	if len(text) > 0 {
+		s.text = text[0]
+	}
+	return s
+}
+
+// fgCode returns the raw foreground escape sequence string.
+func (c Color) fgCode() string {
 	switch GetMode() {
 	case ModeNone:
 		return ""
@@ -198,9 +224,8 @@ func (c Color) FG() string {
 	}
 }
 
-// BG returns the background escape sequence for this color, respecting the
-// current color mode.
-func (c Color) BG() string {
+// bgCode returns the raw background escape sequence string.
+func (c Color) bgCode() string {
 	switch GetMode() {
 	case ModeNone:
 		return ""
@@ -249,6 +274,168 @@ func (c Color) nearest256() uint8 {
 		return uint8(c.idx16) // first 16 of the 256 palette
 	}
 	return closestANSI256(c.r, c.g, c.b)
+}
+
+// ---------------------------------------------------------------------------
+// StyledText
+// ---------------------------------------------------------------------------
+
+// StyledText accumulates ANSI escape codes for fluent text styling.
+// It is immutable — every chaining method returns a new StyledText.
+//
+//	ansi.Bold().FG(ansi.Red).Text("error")
+//	ansi.Red.FG().Bold().Underline().Text("critical")
+type StyledText struct {
+	codes []string
+	text  string
+}
+
+// with returns a new StyledText with the given code appended.
+func (s StyledText) with(code string) StyledText {
+	newCodes := make([]string, len(s.codes), len(s.codes)+1)
+	copy(newCodes, s.codes)
+	newCodes = append(newCodes, code)
+	return StyledText{codes: newCodes, text: s.text}
+}
+
+// FG adds a foreground color to the style chain.
+func (s StyledText) FG(c Color) StyledText { return s.with(c.fgCode()) }
+
+// BG adds a background color to the style chain.
+func (s StyledText) BG(c Color) StyledText { return s.with(c.bgCode()) }
+
+// Bold adds bold to the style chain.
+func (s StyledText) Bold() StyledText { return s.with(boldCode) }
+
+// Dim adds dim/faint to the style chain.
+func (s StyledText) Dim() StyledText { return s.with(dimCode) }
+
+// Italic adds italic to the style chain.
+func (s StyledText) Italic() StyledText { return s.with(italicCode) }
+
+// Underline adds underline to the style chain.
+func (s StyledText) Underline() StyledText { return s.with(underlineCode) }
+
+// Blink adds blink to the style chain.
+func (s StyledText) Blink() StyledText { return s.with(blinkCode) }
+
+// RapidBlink adds rapid blink to the style chain.
+func (s StyledText) RapidBlink() StyledText { return s.with(rapidBlinkCode) }
+
+// Reverse adds reverse video to the style chain.
+func (s StyledText) Reverse() StyledText { return s.with(reverseCode) }
+
+// Hidden adds hidden to the style chain.
+func (s StyledText) Hidden() StyledText { return s.with(hiddenCode) }
+
+// Strikethrough adds strikethrough to the style chain.
+func (s StyledText) Strikethrough() StyledText { return s.with(strikethroughCode) }
+
+// Text renders the styled text: accumulated codes + text + [Reset].
+// This is the terminal method of the fluent chain.
+//
+//	ansi.Bold().FG(ansi.Red).Text("error")
+func (s StyledText) Text(text string) string {
+	return s.render(text)
+}
+
+// String implements [fmt.Stringer]. If text has been set (via a constructor
+// shortcut like Bold("hello") or Red.FG("text")), it renders the full
+// styled string. Otherwise it returns just the accumulated escape codes,
+// which is useful for manual string building.
+func (s StyledText) String() string {
+	if s.text != "" {
+		return s.render(s.text)
+	}
+	// No text — return raw codes only.
+	var b strings.Builder
+	for _, c := range s.codes {
+		b.WriteString(c)
+	}
+	return b.String()
+}
+
+// render builds the final output: codes + text + Reset.
+func (s StyledText) render(text string) string {
+	// Check if all codes are empty (ModeNone produces empty strings).
+	hasCode := false
+	for _, c := range s.codes {
+		if c != "" {
+			hasCode = true
+			break
+		}
+	}
+	if !hasCode {
+		return text
+	}
+	var b strings.Builder
+	for _, c := range s.codes {
+		b.WriteString(c)
+	}
+	b.WriteString(text)
+	b.WriteString(Reset)
+	return b.String()
+}
+
+// ---------------------------------------------------------------------------
+// SGR style functions
+// ---------------------------------------------------------------------------
+
+// Bold returns a [StyledText] with bold applied. If text is provided, it
+// is set for immediate rendering.
+//
+//	ansi.Bold("important")                // shortcut
+//	ansi.Bold().FG(ansi.Red).Text("err")  // chained
+func Bold(text ...string) StyledText {
+	return sgrFunc(boldCode, text)
+}
+
+// Dim returns a [StyledText] with dim/faint applied.
+func Dim(text ...string) StyledText {
+	return sgrFunc(dimCode, text)
+}
+
+// Italic returns a [StyledText] with italic applied.
+func Italic(text ...string) StyledText {
+	return sgrFunc(italicCode, text)
+}
+
+// Underline returns a [StyledText] with underline applied.
+func Underline(text ...string) StyledText {
+	return sgrFunc(underlineCode, text)
+}
+
+// Blink returns a [StyledText] with blink applied.
+func Blink(text ...string) StyledText {
+	return sgrFunc(blinkCode, text)
+}
+
+// RapidBlink returns a [StyledText] with rapid blink applied.
+func RapidBlink(text ...string) StyledText {
+	return sgrFunc(rapidBlinkCode, text)
+}
+
+// Reverse returns a [StyledText] with reverse video applied.
+func Reverse(text ...string) StyledText {
+	return sgrFunc(reverseCode, text)
+}
+
+// Hidden returns a [StyledText] with hidden applied.
+func Hidden(text ...string) StyledText {
+	return sgrFunc(hiddenCode, text)
+}
+
+// Strikethrough returns a [StyledText] with strikethrough applied.
+func Strikethrough(text ...string) StyledText {
+	return sgrFunc(strikethroughCode, text)
+}
+
+func sgrFunc(code string, text []string) StyledText {
+	s := StyledText{codes: []string{code}}
+	if len(text) > 0 {
+		s.text = text[0]
+	}
+	return s
 }
 
 // ---------------------------------------------------------------------------
@@ -417,23 +604,6 @@ func Link(url, text string) string {
 // SetTitle sets the terminal window title.
 func SetTitle(title string) string {
 	return OSC + "0;" + title + ST
-}
-
-// ---------------------------------------------------------------------------
-// Convenience
-// ---------------------------------------------------------------------------
-
-// Style wraps text with the given escape sequences and appends [Reset].
-//
-//	ansi.Style("warning", ansi.Bold, ansi.Yellow.FG())
-func Style(text string, codes ...string) string {
-	var b strings.Builder
-	for _, c := range codes {
-		b.WriteString(c)
-	}
-	b.WriteString(text)
-	b.WriteString(Reset)
-	return b.String()
 }
 
 // ---------------------------------------------------------------------------
