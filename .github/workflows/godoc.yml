@@ -29,11 +29,20 @@ jobs:
         with:
           name: godoc-site
           path: _site
+          overwrite: true
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Archive pages artifact
+        if: github.ref == 'refs/heads/master'
+        run: tar --dereference --hard-dereference --directory _site -cf $RUNNER_TEMP/artifact.tar --exclude=.git --exclude=.github .
+
+      - uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/master'
         with:
-          path: _site
+          name: github-pages
+          path: ${{ runner.temp }}/artifact.tar
+          retention-days: 1
+          if-no-files-found: error
+          overwrite: true
 
   deploy:
     if: github.ref == 'refs/heads/master'
