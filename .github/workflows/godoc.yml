@@ -2,10 +2,10 @@ name: Deploy GoDoc to GitHub Pages
 
 on:
   push:
-    branches: [master]
     paths:
       - "**.go"
       - go.mod
+      - .github/workflows/godoc.yml
   workflow_dispatch:
 
 permissions:
@@ -14,8 +14,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -23,85 +23,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - uses: wow-look-at-my/static-pkgsite-action@v1
+
+      - uses: actions/upload-artifact@v4
         with:
-          go-version: "1.24"
-
-      - name: Install pkgsite
-        run: go install golang.org/x/pkgsite/cmd/pkgsite@latest
-
-      - name: Generate documentation
-        run: |
-          MODULE="github.com/wow-look-at-my/ansi-writer"
-
-          # Start pkgsite serving the local module
-          pkgsite -http=localhost:6060 &
-          PKGSITE_PID=$!
-
-          # Wait for the module page to be ready (not just the root)
-          for i in $(seq 1 60); do
-            if curl -sf "http://localhost:6060/${MODULE}" > /dev/null 2>&1; then
-              break
-            fi
-            if [ "$i" -eq 60 ]; then
-              echo "Timed out waiting for pkgsite to serve module"
-              kill $PKGSITE_PID || true
-              exit 1
-            fi
-            sleep 1
-          done
-
-          # Give pkgsite a moment to finish rendering
-          sleep 3
-          mkdir -p _site
-
-          # Download the package documentation page and its assets
-          # No --recursive: this is a single-package library, and recursive
-          # mode follows links to every stdlib package referenced in the docs
-          wget \
-            --page-requisites \
-            --convert-links \
-            --adjust-extension \
-            --retry-connrefused \
-            --tries=3 \
-            --waitretry=2 \
-            --directory-prefix=_site \
-            --no-host-directories \
-            "http://localhost:6060/${MODULE}"
-
-          # Grab any additional static assets (CSS/JS) that pkgsite serves
-          wget \
-            --recursive \
-            --level=1 \
-            --no-parent \
-            --retry-connrefused \
-            --tries=3 \
-            --directory-prefix=_site \
-            --no-host-directories \
-            --accept='*.css,*.js,*.svg,*.png,*.ico' \
-            "http://localhost:6060/static/" || true
-
-          kill $PKGSITE_PID || true
-
-          # Create a root index.html that redirects to the package docs
-          cat > _site/index.html <<'REDIR'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta http-equiv="refresh" content="0; url=github.com/wow-look-at-my/ansi-writer">
-            <link rel="canonical" href="github.com/wow-look-at-my/ansi-writer">
-          </head>
-          <body>
-            <p><a href="github.com/wow-look-at-my/ansi-writer">Go to documentation</a></p>
-          </body>
-          </html>
-          REDIR
+          name: godoc-site
+          path: _site
 
       - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/master'
         with:
           path: _site
 
   deploy:
+    if: github.ref == 'refs/heads/master'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
