@@ -2,7 +2,6 @@ name: Deploy GoDoc to GitHub Pages
 
 on:
   push:
-    branches: [master]
     paths:
       - "**.go"
       - go.mod
@@ -14,8 +13,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -25,11 +24,18 @@ jobs:
 
       - uses: wow-look-at-my/static-pkgsite-action@v1
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: godoc-site
+          path: _site
+
       - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/master'
         with:
           path: _site
 
   deploy:
+    if: github.ref == 'refs/heads/master'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
