@@ -5,6 +5,7 @@ on:
     paths:
       - "**.go"
       - go.mod
+      - .github/workflows/godoc.yml
   workflow_dispatch:
 
 permissions:
