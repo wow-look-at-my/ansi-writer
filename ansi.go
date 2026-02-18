@@ -10,6 +10,7 @@
 package ansi
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -479,6 +480,20 @@ func SetTitle(title string) string {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+// Concat joins strings and Stringers without format specifiers.
+func Concat(parts ...any) string {
+	var b strings.Builder
+	for _, p := range parts {
+		switch v := p.(type) {
+		case string:
+			b.WriteString(v)
+		case fmt.Stringer:
+			b.WriteString(v.String())
+		}
+	}
+	return b.String()
+}
 
 func utoa(n uint8) string {
 	return strconv.FormatUint(uint64(n), 10)
