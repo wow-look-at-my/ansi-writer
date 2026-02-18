@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"github.com/wow-look-at-my/testify/assert"
 )
 
 // ---------------------------------------------------------------------------
@@ -13,9 +14,9 @@ import (
 func TestSGRCodes(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		tests := []struct {
-			name string
-			got  string
-			want string
+			name	string
+			got	string
+			want	string
 		}{
 			{"Bold", Bold.String(), "\x1b[1m"},
 			{"Dim", Dim.String(), "\x1b[2m"},
@@ -37,9 +38,8 @@ func TestSGRCodes(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				if tt.got != tt.want {
-					t.Errorf("got %q, want %q", tt.got, tt.want)
-				}
+				assert.Equal(t, tt.want, tt.got)
+
 			})
 		}
 	})
@@ -53,9 +53,8 @@ func TestStyleFmt(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		got := fmt.Sprint(Bold, "hello", Reset)
 		want := "\x1b[1mhello\x1b[0m"
-		if got != want {
-			t.Errorf("fmt.Sprint(Bold, text, Reset) = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -63,9 +62,8 @@ func TestStyleFmtWithColor(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "error", Reset)
 		want := "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"
-		if got != want {
-			t.Errorf("Sprintf Bold+Red.FG = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -76,8 +74,8 @@ func TestStyleFmtWithColor(t *testing.T) {
 func TestStyleModeNone(t *testing.T) {
 	withMode(ModeNone, func() {
 		tests := []struct {
-			name string
-			s    Style
+			name	string
+			s	Style
 		}{
 			{"Bold", Bold},
 			{"Italic", Italic},
@@ -86,9 +84,9 @@ func TestStyleModeNone(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				if got := tt.s.String(); got != "" {
-					t.Errorf("ModeNone: %s.String() = %q, want empty", tt.name, got)
-				}
+				got := tt.s.String()
+				assert.Equal(t, "", got)
+
 			})
 		}
 	})
@@ -98,9 +96,8 @@ func TestStyleModeNoneFmt(t *testing.T) {
 	withMode(ModeNone, func() {
 		got := fmt.Sprintf("%s%s%s%s", Bold, Red.FG, "hello", Reset)
 		want := "hello"
-		if got != want {
-			t.Errorf("ModeNone: Sprintf = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -110,9 +107,9 @@ func TestStyleModeNoneFmt(t *testing.T) {
 
 func TestCursorConstants(t *testing.T) {
 	tests := []struct {
-		name string
-		got  string
-		want string
+		name	string
+		got	string
+		want	string
 	}{
 		{"CursorSave", CursorSave, "\x1b7"},
 		{"CursorRestore", CursorRestore, "\x1b8"},
@@ -121,9 +118,8 @@ func TestCursorConstants(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("got %q, want %q", tt.got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.got)
+
 		})
 	}
 }
@@ -134,9 +130,9 @@ func TestCursorConstants(t *testing.T) {
 
 func TestEraseConstants(t *testing.T) {
 	tests := []struct {
-		name string
-		got  string
-		want string
+		name	string
+		got	string
+		want	string
 	}{
 		{"EraseScreenToEnd", EraseScreenToEnd, "\x1b[0J"},
 		{"EraseScreenToStart", EraseScreenToStart, "\x1b[1J"},
@@ -148,9 +144,8 @@ func TestEraseConstants(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.got != tt.want {
-				t.Errorf("got %q, want %q", tt.got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.got)
+
 		})
 	}
 }
@@ -165,27 +160,24 @@ func TestDetectModeNoColor(t *testing.T) {
 
 	t.Setenv("NO_COLOR", "1")
 	got := detectMode()
-	if got != ModeNone {
-		t.Errorf("NO_COLOR set: got %d, want ModeNone (%d)", got, ModeNone)
-	}
+	assert.Equal(t, ModeNone, got)
+
 }
 
 func TestDetectModeTrueColor(t *testing.T) {
 	t.Setenv("COLORTERM", "truecolor")
 	os.Unsetenv("NO_COLOR")
 	got := detectMode()
-	if got != ModeTrueColor {
-		t.Errorf("COLORTERM=truecolor: got %d, want ModeTrueColor (%d)", got, ModeTrueColor)
-	}
+	assert.Equal(t, ModeTrueColor, got)
+
 }
 
 func TestDetectMode24Bit(t *testing.T) {
 	t.Setenv("COLORTERM", "24bit")
 	os.Unsetenv("NO_COLOR")
 	got := detectMode()
-	if got != ModeTrueColor {
-		t.Errorf("COLORTERM=24bit: got %d, want ModeTrueColor (%d)", got, ModeTrueColor)
-	}
+	assert.Equal(t, ModeTrueColor, got)
+
 }
 
 func TestDetectMode256(t *testing.T) {
@@ -193,9 +185,8 @@ func TestDetectMode256(t *testing.T) {
 	os.Unsetenv("NO_COLOR")
 	os.Unsetenv("COLORTERM")
 	got := detectMode()
-	if got != Mode256 {
-		t.Errorf("TERM=xterm-256color: got %d, want Mode256 (%d)", got, Mode256)
-	}
+	assert.Equal(t, Mode256, got)
+
 }
 
 func TestDetectMode16Fallback(t *testing.T) {
@@ -203,9 +194,8 @@ func TestDetectMode16Fallback(t *testing.T) {
 	os.Unsetenv("COLORTERM")
 	t.Setenv("TERM", "xterm")
 	got := detectMode()
-	if got != Mode16 {
-		t.Errorf("plain TERM: got %d, want Mode16 (%d)", got, Mode16)
-	}
+	assert.Equal(t, Mode16, got)
+
 }
 
 func TestSetModeOverride(t *testing.T) {
@@ -213,9 +203,8 @@ func TestSetModeOverride(t *testing.T) {
 	defer func() { mode = old }()
 
 	SetMode(Mode256)
-	if GetMode() != Mode256 {
-		t.Errorf("SetMode(Mode256): GetMode() = %d, want %d", GetMode(), Mode256)
-	}
+	assert.Equal(t, Mode256, GetMode())
+
 }
 
 // ---------------------------------------------------------------------------
@@ -232,9 +221,9 @@ func withMode(m ColorMode, fn func()) {
 func TestColorFGTrueColor(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		tests := []struct {
-			name  string
-			color Color
-			want  string
+			name	string
+			color	Color
+			want	string
 		}{
 			{"Red", Red, "\x1b[38;2;205;0;0m"},
 			{"Green", Green, "\x1b[38;2;0;205;0m"},
@@ -244,9 +233,8 @@ func TestColorFGTrueColor(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				got := tt.color.fgCode()
-				if got != tt.want {
-					t.Errorf("fgCode() = %q, want %q", got, tt.want)
-				}
+				assert.Equal(t, tt.want, got)
+
 			})
 		}
 	})
@@ -256,9 +244,8 @@ func TestColorBGTrueColor(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		got := RGB(0, 0, 255).bgCode()
 		want := "\x1b[48;2;0;0;255m"
-		if got != want {
-			t.Errorf("bgCode() = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -270,9 +257,8 @@ func TestColorFGStyle(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		got := Red.FG.String()
 		want := "\x1b[38;2;205;0;0m"
-		if got != want {
-			t.Errorf("Red.FG.String() = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -280,9 +266,8 @@ func TestColorBGStyle(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		got := Blue.BG.String()
 		want := "\x1b[48;2;0;0;238m"
-		if got != want {
-			t.Errorf("Blue.BG.String() = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -290,9 +275,8 @@ func TestColorFGFmt(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		got := fmt.Sprint(Red.FG, "error", Reset)
 		want := "\x1b[38;2;205;0;0merror\x1b[0m"
-		if got != want {
-			t.Errorf("fmt.Sprint(Red.FG, text, Reset) = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -300,9 +284,8 @@ func TestColorBGFmt(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		got := fmt.Sprint(Blue.BG, "warning", Reset)
 		want := "\x1b[48;2;0;0;238mwarning\x1b[0m"
-		if got != want {
-			t.Errorf("fmt.Sprint(Blue.BG, text, Reset) = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -313,9 +296,9 @@ func TestColorBGFmt(t *testing.T) {
 func TestColorFG16Named(t *testing.T) {
 	withMode(Mode16, func() {
 		tests := []struct {
-			name  string
-			color Color
-			want  string
+			name	string
+			color	Color
+			want	string
 		}{
 			{"Black", Black, "\x1b[30m"},
 			{"Red", Red, "\x1b[31m"},
@@ -337,9 +320,8 @@ func TestColorFG16Named(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				got := tt.color.fgCode()
-				if got != tt.want {
-					t.Errorf("fgCode() = %q, want %q", got, tt.want)
-				}
+				assert.Equal(t, tt.want, got)
+
 			})
 		}
 	})
@@ -348,9 +330,9 @@ func TestColorFG16Named(t *testing.T) {
 func TestColorBG16Named(t *testing.T) {
 	withMode(Mode16, func() {
 		tests := []struct {
-			name  string
-			color Color
-			want  string
+			name	string
+			color	Color
+			want	string
 		}{
 			{"Black", Black, "\x1b[40m"},
 			{"Red", Red, "\x1b[41m"},
@@ -361,9 +343,8 @@ func TestColorBG16Named(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				got := tt.color.bgCode()
-				if got != tt.want {
-					t.Errorf("bgCode() = %q, want %q", got, tt.want)
-				}
+				assert.Equal(t, tt.want, got)
+
 			})
 		}
 	})
@@ -376,9 +357,9 @@ func TestColorBG16Named(t *testing.T) {
 func TestRGBDowngradeTo16(t *testing.T) {
 	withMode(Mode16, func() {
 		tests := []struct {
-			name    string
-			r, g, b uint8
-			wantIdx int8
+			name	string
+			r, g, b	uint8
+			wantIdx	int8
 		}{
 			{"pure red", 255, 0, 0, 9},
 			{"pure green", 0, 255, 0, 10},
@@ -391,9 +372,8 @@ func TestRGBDowngradeTo16(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				c := RGB(tt.r, tt.g, tt.b)
 				got := closestANSI16(c.r, c.g, c.b)
-				if got != tt.wantIdx {
-					t.Errorf("closestANSI16(%d,%d,%d) = %d, want %d", tt.r, tt.g, tt.b, got, tt.wantIdx)
-				}
+				assert.Equal(t, tt.wantIdx, got)
+
 			})
 		}
 	})
@@ -405,9 +385,9 @@ func TestRGBDowngradeTo16(t *testing.T) {
 
 func TestRGBDowngradeTo256(t *testing.T) {
 	tests := []struct {
-		name    string
-		r, g, b uint8
-		wantIdx uint8
+		name	string
+		r, g, b	uint8
+		wantIdx	uint8
 	}{
 		{"pure white", 255, 255, 255, 231},
 		{"pure black", 0, 0, 0, 16},
@@ -416,9 +396,8 @@ func TestRGBDowngradeTo256(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := closestANSI256(tt.r, tt.g, tt.b)
-			if got != tt.wantIdx {
-				t.Errorf("closestANSI256(%d,%d,%d) = %d, want %d", tt.r, tt.g, tt.b, got, tt.wantIdx)
-			}
+			assert.Equal(t, tt.wantIdx, got)
+
 		})
 	}
 }
@@ -427,9 +406,8 @@ func TestColorFG256(t *testing.T) {
 	withMode(Mode256, func() {
 		got := Red.fgCode()
 		want := "\x1b[38;5;1m"
-		if got != want {
-			t.Errorf("Red.fgCode() in Mode256 = %q, want %q", got, want)
-		}
+		assert.Equal(t, want, got)
+
 	})
 }
 
@@ -439,12 +417,12 @@ func TestColorFG256(t *testing.T) {
 
 func TestModeNone(t *testing.T) {
 	withMode(ModeNone, func() {
-		if got := Red.fgCode(); got != "" {
-			t.Errorf("ModeNone: Red.fgCode() = %q, want empty", got)
-		}
-		if got := RGB(255, 0, 0).bgCode(); got != "" {
-			t.Errorf("ModeNone: RGB.bgCode() = %q, want empty", got)
-		}
+		got := Red.fgCode()
+		assert.Equal(t, "", got)
+
+		got = RGB(255, 0, 0).bgCode()
+		assert.Equal(t, "", got)
+
 	})
 }
 
@@ -453,22 +431,21 @@ func TestColorFGLazyResolution(t *testing.T) {
 		want16 := "\x1b[31m"
 		wantTC := "\x1b[38;2;205;0;0m"
 		fg := Red.FG
-		if got := fg.String(); got != wantTC {
-			t.Errorf("TrueColor: Red.FG.String() = %q, want %q", got, wantTC)
-		}
+		got := fg.String()
+		assert.Equal(t, wantTC, got)
+
 		SetMode(Mode16)
-		if got := fg.String(); got != want16 {
-			t.Errorf("Mode16: Red.FG.String() = %q, want %q", got, want16)
-		}
+		got = fg.String()
+		assert.Equal(t, want16, got)
+
 	})
 }
 
 func TestModeNoneColorFG(t *testing.T) {
 	withMode(ModeNone, func() {
 		got := Red.FG.String()
-		if got != "" {
-			t.Errorf("ModeNone: Red.FG.String() = %q, want empty", got)
-		}
+		assert.Equal(t, "", got)
+
 	})
 }
 
@@ -478,12 +455,9 @@ func TestModeNoneColorFG(t *testing.T) {
 
 func TestHex(t *testing.T) {
 	c := Hex(0xAABBCC)
-	if c.r != 0xAA || c.g != 0xBB || c.b != 0xCC {
-		t.Errorf("Hex(0xAABBCC) = {%d,%d,%d}, want {170,187,204}", c.r, c.g, c.b)
-	}
-	if c.idx16 != -1 {
-		t.Errorf("Hex color idx16 = %d, want -1", c.idx16)
-	}
+	assert.False(t, c.r != 0xAA || c.g != 0xBB || c.b != 0xCC)
+	assert.Equal(t, -1, c.idx16)
+
 }
 
 // ---------------------------------------------------------------------------
@@ -492,9 +466,9 @@ func TestHex(t *testing.T) {
 
 func TestCursorAbsolute(t *testing.T) {
 	tests := []struct {
-		name string
-		pos  Pos
-		want string
+		name	string
+		pos	Pos
+		want	string
 	}{
 		{"origin", Pos{1, 1}, "\x1b[1;1H"},
 		{"row5 col10", Pos{10, 5}, "\x1b[5;10H"},
@@ -502,18 +476,17 @@ func TestCursorAbsolute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Cursor(tt.pos, Abs)
-			if got != tt.want {
-				t.Errorf("Cursor(%v, Abs) = %q, want %q", tt.pos, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
+
 		})
 	}
 }
 
 func TestCursorRelative(t *testing.T) {
 	tests := []struct {
-		name string
-		pos  Pos
-		want string
+		name	string
+		pos	Pos
+		want	string
 	}{
 		{"no movement", Pos{0, 0}, ""},
 		{"right 3", Pos{3, 0}, "\x1b[3C"},
@@ -526,9 +499,8 @@ func TestCursorRelative(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Cursor(tt.pos, Rel)
-			if got != tt.want {
-				t.Errorf("Cursor(%v, Rel) = %q, want %q", tt.pos, got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
+
 		})
 	}
 }
@@ -538,12 +510,12 @@ func TestCursorRelative(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestScroll(t *testing.T) {
-	if got, want := ScrollUp(3), "\x1b[3S"; got != want {
-		t.Errorf("ScrollUp(3) = %q, want %q", got, want)
-	}
-	if got, want := ScrollDown(1), "\x1b[1T"; got != want {
-		t.Errorf("ScrollDown(1) = %q, want %q", got, want)
-	}
+	got, want := ScrollUp(3), "\x1b[3S"
+	assert.Equal(t, want, got)
+
+	got, want = ScrollDown(1), "\x1b[1T"
+	assert.Equal(t, want, got)
+
 }
 
 // ---------------------------------------------------------------------------
@@ -553,9 +525,8 @@ func TestScroll(t *testing.T) {
 func TestLink(t *testing.T) {
 	got := Link("https://example.com", "click")
 	want := "\x1b]8;;https://example.com\x1b\\click\x1b]8;;\x1b\\"
-	if got != want {
-		t.Errorf("Link = %q, want %q", got, want)
-	}
+	assert.Equal(t, want, got)
+
 }
 
 // ---------------------------------------------------------------------------
@@ -565,7 +536,41 @@ func TestLink(t *testing.T) {
 func TestSetTitle(t *testing.T) {
 	got := SetTitle("My App")
 	want := "\x1b]0;My App\x1b\\"
-	if got != want {
-		t.Errorf("SetTitle = %q, want %q", got, want)
-	}
+	assert.Equal(t, want, got)
+
+}
+
+// ---------------------------------------------------------------------------
+// Concat
+// ---------------------------------------------------------------------------
+
+func TestConcat(t *testing.T) {
+	withMode(ModeTrueColor, func() {
+		tests := []struct {
+			name   string
+			parts  []any
+			want   string
+		}{
+			{"strings only", []any{"hello", " ", "world"}, "hello world"},
+			{"style and string", []any{Bold, "text", Reset}, "\x1b[1mtext\x1b[0m"},
+			{"color fg", []any{Red.FG, "error", Reset}, "\x1b[38;2;205;0;0merror\x1b[0m"},
+			{"mixed styles", []any{Bold, Red.FG, "error", Reset}, "\x1b[1m\x1b[38;2;205;0;0merror\x1b[0m"},
+			{"empty", []any{}, ""},
+			{"single string", []any{"alone"}, "alone"},
+			{"single style", []any{Bold}, "\x1b[1m"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got := Concat(tt.parts...)
+				assert.Equal(t, tt.want, got)
+			})
+		}
+	})
+}
+
+func TestConcatModeNone(t *testing.T) {
+	withMode(ModeNone, func() {
+		got := Concat(Bold, Red.FG, "hello", Reset)
+		assert.Equal(t, "hello", got)
+	})
 }
