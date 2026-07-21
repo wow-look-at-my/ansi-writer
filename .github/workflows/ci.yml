@@ -4,6 +4,12 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+  checks: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
