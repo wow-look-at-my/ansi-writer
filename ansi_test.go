@@ -456,7 +456,7 @@ func TestModeNoneColorFG(t *testing.T) {
 func TestHex(t *testing.T) {
 	c := Hex(0xAABBCC)
 	assert.False(t, c.r != 0xAA || c.g != 0xBB || c.b != 0xCC)
-	assert.Equal(t, -1, c.idx16)
+	assert.Equal(t, int8(-1), c.idx16)
 
 }
 
