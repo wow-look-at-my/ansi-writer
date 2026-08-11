@@ -2,9 +2,9 @@ package ansi
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
-	"github.com/stretchr/testify/assert"
 )
 
 // ---------------------------------------------------------------------------
@@ -14,9 +14,9 @@ import (
 func TestSGRCodes(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		tests := []struct {
-			name	string
-			got	string
-			want	string
+			name string
+			got  string
+			want string
 		}{
 			{"Bold", Bold.String(), "\x1b[1m"},
 			{"Dim", Dim.String(), "\x1b[2m"},
@@ -74,8 +74,8 @@ func TestStyleFmtWithColor(t *testing.T) {
 func TestStyleModeNone(t *testing.T) {
 	withMode(ModeNone, func() {
 		tests := []struct {
-			name	string
-			s	Style
+			name string
+			s    Style
 		}{
 			{"Bold", Bold},
 			{"Italic", Italic},
@@ -107,9 +107,9 @@ func TestStyleModeNoneFmt(t *testing.T) {
 
 func TestCursorConstants(t *testing.T) {
 	tests := []struct {
-		name	string
-		got	string
-		want	string
+		name string
+		got  string
+		want string
 	}{
 		{"CursorSave", CursorSave, "\x1b7"},
 		{"CursorRestore", CursorRestore, "\x1b8"},
@@ -130,9 +130,9 @@ func TestCursorConstants(t *testing.T) {
 
 func TestEraseConstants(t *testing.T) {
 	tests := []struct {
-		name	string
-		got	string
-		want	string
+		name string
+		got  string
+		want string
 	}{
 		{"EraseScreenToEnd", EraseScreenToEnd, "\x1b[0J"},
 		{"EraseScreenToStart", EraseScreenToStart, "\x1b[1J"},
@@ -221,9 +221,9 @@ func withMode(m ColorMode, fn func()) {
 func TestColorFGTrueColor(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		tests := []struct {
-			name	string
-			color	Color
-			want	string
+			name  string
+			color Color
+			want  string
 		}{
 			{"Red", Red, "\x1b[38;2;205;0;0m"},
 			{"Green", Green, "\x1b[38;2;0;205;0m"},
@@ -296,9 +296,9 @@ func TestColorBGFmt(t *testing.T) {
 func TestColorFG16Named(t *testing.T) {
 	withMode(Mode16, func() {
 		tests := []struct {
-			name	string
-			color	Color
-			want	string
+			name  string
+			color Color
+			want  string
 		}{
 			{"Black", Black, "\x1b[30m"},
 			{"Red", Red, "\x1b[31m"},
@@ -330,9 +330,9 @@ func TestColorFG16Named(t *testing.T) {
 func TestColorBG16Named(t *testing.T) {
 	withMode(Mode16, func() {
 		tests := []struct {
-			name	string
-			color	Color
-			want	string
+			name  string
+			color Color
+			want  string
 		}{
 			{"Black", Black, "\x1b[40m"},
 			{"Red", Red, "\x1b[41m"},
@@ -357,9 +357,9 @@ func TestColorBG16Named(t *testing.T) {
 func TestRGBDowngradeTo16(t *testing.T) {
 	withMode(Mode16, func() {
 		tests := []struct {
-			name	string
-			r, g, b	uint8
-			wantIdx	int8
+			name    string
+			r, g, b uint8
+			wantIdx int8
 		}{
 			{"pure red", 255, 0, 0, 9},
 			{"pure green", 0, 255, 0, 10},
@@ -385,9 +385,9 @@ func TestRGBDowngradeTo16(t *testing.T) {
 
 func TestRGBDowngradeTo256(t *testing.T) {
 	tests := []struct {
-		name	string
-		r, g, b	uint8
-		wantIdx	uint8
+		name    string
+		r, g, b uint8
+		wantIdx uint8
 	}{
 		{"pure white", 255, 255, 255, 231},
 		{"pure black", 0, 0, 0, 16},
@@ -466,9 +466,9 @@ func TestHex(t *testing.T) {
 
 func TestCursorAbsolute(t *testing.T) {
 	tests := []struct {
-		name	string
-		pos	Pos
-		want	string
+		name string
+		pos  Pos
+		want string
 	}{
 		{"origin", Pos{1, 1}, "\x1b[1;1H"},
 		{"row5 col10", Pos{10, 5}, "\x1b[5;10H"},
@@ -484,9 +484,9 @@ func TestCursorAbsolute(t *testing.T) {
 
 func TestCursorRelative(t *testing.T) {
 	tests := []struct {
-		name	string
-		pos	Pos
-		want	string
+		name string
+		pos  Pos
+		want string
 	}{
 		{"no movement", Pos{0, 0}, ""},
 		{"right 3", Pos{3, 0}, "\x1b[3C"},
@@ -547,9 +547,9 @@ func TestSetTitle(t *testing.T) {
 func TestConcat(t *testing.T) {
 	withMode(ModeTrueColor, func() {
 		tests := []struct {
-			name   string
-			parts  []any
-			want   string
+			name  string
+			parts []any
+			want  string
 		}{
 			{"strings only", []any{"hello", " ", "world"}, "hello world"},
 			{"style and string", []any{Bold, "text", Reset}, "\x1b[1mtext\x1b[0m"},
